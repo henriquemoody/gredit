@@ -35,6 +35,11 @@ export async function openSession(config: Config): Promise<Session> {
 
   const context = await chromium.launchPersistentContext(profile, {
     headless: config.headless,
+  }).catch((err: Error) => {
+    if (/executable.*doesn.t exist|Executable doesn/i.test(err.message)) {
+      throw new Error("Playwright browser not found. Run 'grafana-dash setup' to download it.");
+    }
+    throw err;
   });
   const page = context.pages()[0] ?? (await context.newPage());
 

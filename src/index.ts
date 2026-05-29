@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { loadConfig, ConfigError } from "./config.ts";
-import { login, logout, pull, push, lint, shot, preview } from "./commands.ts";
+import { login, logout, pull, push, lint, shot, preview, setup } from "./commands.ts";
 
 const HELP = `grafana-dash — agentic Grafana dashboard development (no API key needed)
 
@@ -8,6 +8,7 @@ Usage:
   grafana-dash <command> [uid|alias]
 
 Commands:
+  setup                Download the Playwright chromium browser (run once after install).
   login                Headful Okta login; saves the session to the profile dir.
   logout               Remove the stored session.
   pull  [uid|alias]    Download the dashboard model to <dashboardsDir>/<uid>.json.
@@ -48,12 +49,14 @@ async function main(): Promise<number> {
     return cmd ? 0 : 1;
   }
 
-  const known = ["login", "logout", "pull", "push", "lint", "shot", "preview"] as const;
+  const known = ["setup", "login", "logout", "pull", "push", "lint", "shot", "preview"] as const;
   if (!known.includes(cmd as (typeof known)[number])) {
     console.error(`Unknown command: ${cmd}\n`);
     console.log(HELP);
     return 1;
   }
+
+  if (cmd === "setup") return setup();
 
   const config = await loadConfig();
   switch (cmd) {
