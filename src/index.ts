@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { loadConfig, ConfigError } from "./config.ts";
-import { login, logout, pull, push, lint, shot } from "./commands.ts";
+import { login, logout, pull, push, lint, shot, preview } from "./commands.ts";
 
 const HELP = `grafana-dash — agentic Grafana dashboard development (no API key needed)
 
@@ -13,7 +13,8 @@ Commands:
   pull  [uid|alias]    Download the dashboard model to <dashboardsDir>/<uid>.json.
   lint  [uid|alias]    Validate the local model (no network). Nonzero exit on errors.
   push  [uid|alias]    Lint, then upload the local model with overwrite=true.
-  shot  [uid|alias]    Screenshot the rendered dashboard to <dashboardsDir>/<uid>.png.
+  shot    [uid|alias]  Screenshot the rendered dashboard to <dashboardsDir>/<uid>.png.
+  preview [uid|alias]  Open the dashboard in a browser for interactive preview.
   help                 Show this message.
 
 Config (grafana-dash.config.json in the current directory):
@@ -35,7 +36,8 @@ Typical loop:
   grafana-dash pull main     # then edit dashboards/<uid>.json
   grafana-dash lint main
   grafana-dash push main
-  grafana-dash shot main     # review the rendered result
+  grafana-dash shot main     # screenshot the rendered result
+  grafana-dash preview main  # open in browser for interactive review
 `;
 
 async function main(): Promise<number> {
@@ -46,7 +48,7 @@ async function main(): Promise<number> {
     return cmd ? 0 : 1;
   }
 
-  const known = ["login", "logout", "pull", "push", "lint", "shot"] as const;
+  const known = ["login", "logout", "pull", "push", "lint", "shot", "preview"] as const;
   if (!known.includes(cmd as (typeof known)[number])) {
     console.error(`Unknown command: ${cmd}\n`);
     console.log(HELP);
@@ -67,6 +69,8 @@ async function main(): Promise<number> {
       return push(config, arg);
     case "shot":
       return shot(config, arg);
+    case "preview":
+      return preview(config, arg);
     default:
       return 1;
   }
