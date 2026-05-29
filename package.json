@@ -1,0 +1,21 @@
+{
+  "name": "grafana-dash",
+  "version": "0.1.0",
+  "description": "Agentic Grafana dashboard development: pull/edit/push dashboard JSON via a persistent, Okta-authenticated browser session. No API key required.",
+  "type": "module",
+  "bin": {
+    "grafana-dash": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile dist/grafana-dash --external chromium-bidi",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  }
+}

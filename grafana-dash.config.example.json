@@ -1,0 +1,12 @@
+{
+  "baseUrl": "https://grafana.company.com",
+  "profileDir": ".gf-profile",
+  "dashboardsDir": "dashboards",
+  "uid": "abc123def",
+  "dashboards": {
+    "main": "abc123def",
+    "ops": "xyz789"
+  },
+  "shotKiosk": true,
+  "headless": false
+}

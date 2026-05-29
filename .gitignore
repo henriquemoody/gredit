@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.bun-build
+# Per-project artifacts (when the binary is run inside a dashboard repo):
+.gf-profile/
+*.local.json
