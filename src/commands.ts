@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { createInterface } from "node:readline";
 import type { Config } from "./config.ts";
-import { resolveUid } from "./config.ts";
+import { resolveUid, loadConfig, configPath } from "./config.ts";
 import { openSession, looksUnauthenticated } from "./session.ts";
 import { lintDashboard, type DashboardModel } from "./lint.ts";
 
@@ -17,6 +19,52 @@ export async function setup(): Promise<number> {
   await registry.installBrowsersForNpmInstall(["chromium"]);
   console.log("Done.");
   return 0;
+}
+
+/** Interactive wizard that creates grafana-dash.json, then runs login. */
+export async function init(): Promise<number> {
+  const cfgFile = configPath();
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> =>
+    new Promise((res) => rl.question(q, (a) => res(a.trim())));
+
+  try {
+    if (existsSync(cfgFile)) {
+      const ans = await ask("grafana-dash.json already exists. Overwrite? [y/N] ");
+      if (!ans.toLowerCase().startsWith("y")) {
+        console.log("Aborted.");
+        return 0;
+      }
+    }
+
+    console.log("\nSet up grafana-dash — press Enter to accept defaults.\n");
+
+    let baseUrl = "";
+    while (!baseUrl) {
+      baseUrl = await ask("Grafana base URL (e.g. https://grafana.company.com): ");
+      if (!baseUrl) console.error("  baseUrl is required.");
+    }
+    baseUrl = baseUrl.replace(/\/+$/, "");
+
+    const profileDir = (await ask("Session profile directory [.gf-profile]: ")) || ".gf-profile";
+    const dashboardsDir = (await ask("Dashboards directory [dashboards]: ")) || "dashboards";
+    const uid = await ask("Default dashboard UID (optional, press Enter to skip): ");
+
+    const shotKioskAns = (await ask("Screenshot in kiosk mode? [Y/n] ")) || "y";
+    const shotKiosk = shotKioskAns.toLowerCase().startsWith("y");
+
+    const cfg: Record<string, unknown> = { baseUrl, profileDir, dashboardsDir, shotKiosk, headless: false };
+    if (uid) cfg.uid = uid;
+
+    await Bun.write(cfgFile, JSON.stringify(cfg, null, 2) + "\n");
+    console.log(`\nCreated grafana-dash.json.`);
+  } finally {
+    rl.close();
+  }
+
+  console.log("Starting login...\n");
+  return login(await loadConfig());
 }
 
 function dashFile(config: Config, uid: string): string {
