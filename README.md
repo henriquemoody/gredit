@@ -37,9 +37,9 @@ bunx playwright install chromium   # one-time: fetch the browser binary
 bun run build          # -> dist/grafana-dash
 ```
 
-Put `dist/grafana-dash` on your `PATH`. Note: the compiled binary still relies on
-the Playwright Chromium installed via `playwright install` (browser binaries
-can't be embedded), so that step is required on each machine.
+Put `dist/grafana-dash` on your `PATH`, then run `grafana-dash setup` once on
+each machine to download the Playwright Chromium browser. Browser binaries
+can't be embedded in the binary itself, but `setup` handles the download.
 
 ## Configure (per project)
 
@@ -66,11 +66,14 @@ Add `.gf-profile/` to that repo's `.gitignore` — it holds your session.
 ## Commands
 
 ```
-grafana-dash auth              one-time headful Okta login
-grafana-dash pull [uid|alias]  download model -> dashboards/<uid>.json
-grafana-dash lint [uid|alias]  validate locally (no network)
-grafana-dash push [uid|alias]  lint, then upload with overwrite=true
-grafana-dash shot [uid|alias]  screenshot rendered dashboard -> <uid>.png
+grafana-dash setup               download the Playwright Chromium browser (once per machine)
+grafana-dash login               one-time headful Okta login
+grafana-dash logout              remove the stored session
+grafana-dash pull [uid|alias]    download model -> dashboards/<uid>.json
+grafana-dash lint [uid|alias]    validate locally (no network)
+grafana-dash push [uid|alias]    lint, then upload with overwrite=true
+grafana-dash shot [uid|alias]    screenshot rendered dashboard -> <uid>.png
+grafana-dash preview [uid|alias] open dashboard in browser for interactive review
 grafana-dash help
 ```
 
@@ -80,7 +83,8 @@ the default `uid`.
 ## The loop
 
 ```sh
-grafana-dash auth          # once, until Okta expires
+grafana-dash setup         # once per machine
+grafana-dash login         # once, until Okta expires
 grafana-dash pull main     # commit the baseline
 # ...edit dashboards/<uid>.json...
 grafana-dash lint main     # fix until clean
@@ -104,7 +108,7 @@ Commit each accepted version. `git diff` is your safety net: drift in `uid` or
 ## Caveats
 
 - **Session expiry:** when Okta times out, `pull`/`push` return exit code 2 and
-  ask you to re-run `auth`.
+  ask you to re-run `login`.
 - **Headless detection:** some Okta/Grafana setups block headless browsers, so
   the default is headful. Set `"headless": true` only if it works for you.
 - **CSRF/org headers:** issuing fetches from the page context satisfies the
