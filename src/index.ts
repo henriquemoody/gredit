@@ -17,7 +17,7 @@ Commands:
   preview [uid|alias]  Open the dashboard in a browser for interactive preview.
   help                 Show this message.
 
-Config (grafana-dash.config.json in the current directory):
+Config (grafana-dash.json in the current directory; also loads grafana-dash.dist.json and grafana-dash.local.json if present):
   {
     "baseUrl": "https://grafana.company.com",   // required
     "profileDir": ".gf-profile",                 // session cookies live here

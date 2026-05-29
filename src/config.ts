@@ -22,7 +22,7 @@ export interface Config {
   headless: boolean;
 }
 
-const CONFIG_FILE = "grafana-dash.config.json";
+const CONFIG_FILES = ["grafana-dash.dist.json", "grafana-dash.json", "grafana-dash.local.json"];
 
 const DEFAULTS = {
   profileDir: ".gf-profile",
@@ -32,24 +32,28 @@ const DEFAULTS = {
 };
 
 export function configPath(cwd = process.cwd()): string {
-  return resolve(cwd, CONFIG_FILE);
+  return resolve(cwd, "grafana-dash.json");
 }
 
 /**
- * Load and validate config from the current directory. Environment variables
- * override file values so CI / one-off runs don't need to edit the file:
+ * Load and validate config from the current directory. Files are merged in
+ * order: grafana-dash.dist.json < grafana-dash.json < grafana-dash.local.json.
+ * Environment variables override all file values:
  *   GRAFANA_BASE_URL, GRAFANA_PROFILE_DIR, GRAFANA_DASHBOARDS_DIR,
  *   GRAFANA_UID, GRAFANA_HEADLESS (=1)
  */
 export async function loadConfig(cwd = process.cwd()): Promise<Config> {
-  const path = configPath(cwd);
   let fileConfig: Partial<Config> = {};
 
-  if (existsSync(path)) {
-    try {
-      fileConfig = (await Bun.file(path).json()) as Partial<Config>;
-    } catch (err) {
-      throw new ConfigError(`Could not parse ${CONFIG_FILE}: ${(err as Error).message}`);
+  for (const file of CONFIG_FILES) {
+    const path = resolve(cwd, file);
+    if (existsSync(path)) {
+      try {
+        const parsed = (await Bun.file(path).json()) as Partial<Config>;
+        fileConfig = { ...fileConfig, ...parsed };
+      } catch (err) {
+        throw new ConfigError(`Could not parse ${file}: ${(err as Error).message}`);
+      }
     }
   }
 
@@ -67,7 +71,7 @@ export async function loadConfig(cwd = process.cwd()): Promise<Config> {
 
   if (!merged.baseUrl) {
     throw new ConfigError(
-      `No baseUrl set. Create ${CONFIG_FILE} (see 'grafana-dash help') or set GRAFANA_BASE_URL.`,
+      `No baseUrl set. Create grafana-dash.json (see 'grafana-dash help') or set GRAFANA_BASE_URL.`,
     );
   }
   // Normalize: strip trailing slash so URL joins are predictable.

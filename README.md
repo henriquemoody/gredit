@@ -10,7 +10,7 @@ session cookie to call Grafana's own REST API (`GET /api/dashboards/uid/<uid>`,
 is required. The dashboard JSON is treated as source of truth in your repo.
 
 The binary is shared; **configuration is per project**. Each dashboard repo
-carries its own `grafana-dash.config.json`, so one installed `grafana-dash`
+carries its own `grafana-dash.json`, so one installed `grafana-dash`
 serves many instances/dashboards.
 
 ## How it works
@@ -43,8 +43,10 @@ can't be embedded), so that step is required on each machine.
 
 ## Configure (per project)
 
-Drop a `grafana-dash.config.json` in the dashboard repo (copy
-`grafana-dash.config.example.json`):
+Drop a `grafana-dash.json` in the dashboard repo (copy `grafana-dash.example.json`).
+Settings are merged in order, each layer overriding the previous:
+`grafana-dash.dist.json` → `grafana-dash.json` → `grafana-dash.local.json`.
+Only files that exist are loaded; `grafana-dash.local.json` is gitignored by default.
 
 ```json
 {
