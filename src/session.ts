@@ -1,6 +1,6 @@
-import { resolve } from "node:path";
-import type { BrowserContext, Page } from "playwright";
-import type { Config } from "./config.ts";
+import { resolve } from 'node:path';
+import type { BrowserContext, Page } from 'playwright';
+import type { Config } from './config.ts';
 
 /**
  * A live, authenticated browser session backed by the persistent profile.
@@ -30,27 +30,29 @@ export interface ApiResult<T> {
  * pay for it or require the browser binaries to be installed.
  */
 export async function openSession(config: Config): Promise<Session> {
-  const { chromium } = await import("playwright");
+  const { chromium } = await import('playwright');
   const profile = resolve(process.cwd(), config.profileDir);
 
-  const context = await chromium.launchPersistentContext(profile, {
-    headless: config.headless,
-  }).catch((err: Error) => {
-    if (/executable.*doesn.t exist|Executable doesn/i.test(err.message)) {
-      throw new Error("Playwright browser not found. Run 'gredit setup' to download it.");
-    }
-    throw err;
-  });
+  const context = await chromium
+    .launchPersistentContext(profile, {
+      headless: config.headless,
+    })
+    .catch((err: Error) => {
+      if (/executable.*doesn.t exist|Executable doesn/i.test(err.message)) {
+        throw new Error("Playwright browser not found. Run 'gredit setup' to download it.");
+      }
+      throw err;
+    });
   const page = context.pages()[0] ?? (await context.newPage());
 
   // Navigate to the origin first so page-context fetches are same-origin.
-  await page.goto(config.baseUrl, { waitUntil: "domcontentloaded" });
+  await page.goto(config.baseUrl, { waitUntil: 'domcontentloaded' });
 
   const apiFetch = async <T>(path: string, init?: RequestInit): Promise<ApiResult<T>> => {
-    const url = path.startsWith("http") ? path : `${config.baseUrl}${path}`;
+    const url = path.startsWith('http') ? path : `${config.baseUrl}${path}`;
     return page.evaluate(
       async ({ url, init }) => {
-        const r = await fetch(url, { credentials: "include", ...(init as RequestInit) });
+        const r = await fetch(url, { credentials: 'include', ...(init as RequestInit) });
         let body: unknown;
         const text = await r.text();
         try {
@@ -81,6 +83,6 @@ export async function openSession(config: Config): Promise<Session> {
  */
 export function looksUnauthenticated<T>(res: ApiResult<T>): boolean {
   if (res.status === 401 || res.status === 403) return true;
-  if (typeof res.body === "string" && /<!doctype html|<html/i.test(res.body)) return true;
+  if (typeof res.body === 'string' && /<!doctype html|<html/i.test(res.body)) return true;
   return false;
 }

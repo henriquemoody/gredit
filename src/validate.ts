@@ -3,7 +3,7 @@
  * Pure functions only — no network, no file I/O.
  */
 
-import type { DashboardModel, Panel } from "./lint.ts";
+import type { DashboardModel, Panel } from './lint.ts';
 
 // ---------------------------------------------------------------------------
 // Template variable substitution
@@ -11,16 +11,16 @@ import type { DashboardModel, Panel } from "./lint.ts";
 
 /** Sensible defaults for Grafana built-in variables used in validation runs. */
 const GRAFANA_GLOBALS: Record<string, string> = {
-  __interval: "1m",
-  __interval_ms: "60000",
-  __rate_interval: "5m",
-  __rate_interval_ms: "300000",
-  __range: "15m",
-  __range_s: "900",
-  __range_ms: "900000",
-  __auto_interval: "1m",
-  __from: "now-15m",
-  __to: "now",
+  __interval: '1m',
+  __interval_ms: '60000',
+  __rate_interval: '5m',
+  __rate_interval_ms: '300000',
+  __range: '15m',
+  __range_s: '900',
+  __range_ms: '900000',
+  __auto_interval: '1m',
+  __from: 'now-15m',
+  __to: 'now',
 };
 
 /**
@@ -34,7 +34,7 @@ export function collectTemplateVars(model: DashboardModel): Map<string, string> 
   if (!Array.isArray(list)) return vars;
 
   for (const item of list) {
-    if (typeof item !== "object" || item === null) continue;
+    if (typeof item !== 'object' || item === null) continue;
     const v = item as Record<string, unknown>;
     const name = v.name as string | undefined;
     if (!name) continue;
@@ -43,11 +43,11 @@ export function collectTemplateVars(model: DashboardModel): Map<string, string> 
     if (!current) continue;
 
     const val = current.value;
-    if (val === "$__all") {
+    if (val === '$__all') {
       // "All" selected — use .* which works for most PromQL regex matchers
-      vars.set(name, ".*");
+      vars.set(name, '.*');
     } else if (Array.isArray(val)) {
-      vars.set(name, val.join("|"));
+      vars.set(name, val.join('|'));
     } else if (val != null) {
       vars.set(name, String(val));
     }
@@ -63,8 +63,8 @@ export function collectTemplateVars(model: DashboardModel): Map<string, string> 
 export function parseVarOverrides(raw: string | undefined): Map<string, string> {
   const map = new Map<string, string>();
   if (!raw) return map;
-  for (const pair of raw.split(",")) {
-    const eq = pair.indexOf("=");
+  for (const pair of raw.split(',')) {
+    const eq = pair.indexOf('=');
     if (eq < 0) continue;
     map.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
   }
@@ -74,19 +74,25 @@ export function parseVarOverrides(raw: string | undefined): Map<string, string> 
 /** Substitute Grafana template variable syntax in a single string. */
 export function substituteVars(input: string, vars: Map<string, string>): string {
   // ${var:format} and ${var}
-  input = input.replace(/\$\{([^}:]+)(?::[^}]*)?\}/g, (match, name: string) => vars.get(name) ?? match);
+  input = input.replace(
+    /\$\{([^}:]+)(?::[^}]*)?\}/g,
+    (match, name: string) => vars.get(name) ?? match,
+  );
   // [[var]]
   input = input.replace(/\[\[([^\]]+)\]\]/g, (match, name: string) => vars.get(name) ?? match);
   // $var — must come last to avoid double-substitution
-  input = input.replace(/\$([a-zA-Z_][a-zA-Z0-9_]*)/g, (match, name: string) => vars.get(name) ?? match);
+  input = input.replace(
+    /\$([a-zA-Z_][a-zA-Z0-9_]*)/g,
+    (match, name: string) => vars.get(name) ?? match,
+  );
   return input;
 }
 
 /** Recursively substitute template vars in all string values of an object. */
 export function substituteVarsInObject(obj: unknown, vars: Map<string, string>): unknown {
-  if (typeof obj === "string") return substituteVars(obj, vars);
+  if (typeof obj === 'string') return substituteVars(obj, vars);
   if (Array.isArray(obj)) return obj.map((item) => substituteVarsInObject(item, vars));
-  if (obj !== null && typeof obj === "object") {
+  if (obj !== null && typeof obj === 'object') {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
       result[k] = substituteVarsInObject(v, vars);
@@ -122,8 +128,8 @@ export function buildQueryPayload(
   panel: Panel,
   model: DashboardModel,
   vars: Map<string, string>,
-  from = "now-1h",
-  to = "now",
+  from = 'now-1h',
+  to = 'now',
 ): QueryPayload | null {
   const rawTargets = (panel as Record<string, unknown>).targets;
   if (!Array.isArray(rawTargets) || rawTargets.length === 0) return null;
@@ -133,7 +139,7 @@ export function buildQueryPayload(
 
   const queries: QueryTarget[] = [];
   for (const raw of rawTargets) {
-    if (typeof raw !== "object" || raw === null) continue;
+    if (typeof raw !== 'object' || raw === null) continue;
     const t = raw as Record<string, unknown>;
 
     // Skip targets that are explicitly disabled
@@ -145,11 +151,11 @@ export function buildQueryPayload(
       intervalMs: 60000,
       maxDataPoints: 100,
       ...substituted,
-      refId: typeof substituted.refId === "string" ? substituted.refId : "A",
+      refId: typeof substituted.refId === 'string' ? substituted.refId : 'A',
     };
 
     // Fill datasource if the target doesn't carry one
-    if (query.datasource == null || query.datasource === "") {
+    if (query.datasource == null || query.datasource === '') {
       query.datasource = panelDs ?? undefined;
     }
 
@@ -166,17 +172,17 @@ export function buildQueryPayload(
 
 /** A panel selector is either a title string or `#<numeric-id>`. */
 export interface PanelSelector {
-  type: "title" | "id";
+  type: 'title' | 'id';
   raw: string;
   value: string | number;
 }
 
 export function parsePanelSelector(selector: string): PanelSelector {
-  if (selector.startsWith("#")) {
+  if (selector.startsWith('#')) {
     const id = Number(selector.slice(1));
-    if (!isNaN(id)) return { type: "id", raw: selector, value: id };
+    if (!isNaN(id)) return { type: 'id', raw: selector, value: id };
   }
-  return { type: "title", raw: selector, value: selector };
+  return { type: 'title', raw: selector, value: selector };
 }
 
 // ---------------------------------------------------------------------------
@@ -195,8 +201,8 @@ export interface DataFrame {
 }
 
 function formatValue(val: unknown): unknown {
-  if (val === null || val === undefined) return "";
-  if (typeof val === "number") {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'number') {
     if (!isFinite(val)) return String(val);
     return val; // keep as number so console.table right-aligns it
   }
@@ -205,9 +211,9 @@ function formatValue(val: unknown): unknown {
 
 function formatLabels(labels: Record<string, string>): string {
   return Object.entries(labels)
-    .filter(([k]) => k !== "__name__")
+    .filter(([k]) => k !== '__name__')
     .map(([k, v]) => `${k}="${v}"`)
-    .join(", ");
+    .join(', ');
 }
 
 /**
@@ -228,21 +234,21 @@ export function printFrameData(frames: DataFrame[]): void {
   // --- Time series ---
   const isTimeSeries =
     fields0.length >= 2 &&
-    (fields0[0]?.type === "time" || fields0[0]?.name?.toLowerCase() === "time");
+    (fields0[0]?.type === 'time' || fields0[0]?.name?.toLowerCase() === 'time');
 
   if (isTimeSeries) {
     const tableObj: Record<string, Record<string, unknown>> = {};
     for (const frame of frames) {
       const fields = frame.schema?.fields ?? [];
       const values = frame.data?.values ?? [];
-      const timeVals = values[0] as number[] | undefined ?? [];
+      const timeVals = (values[0] as number[] | undefined) ?? [];
       for (let fi = 1; fi < fields.length; fi++) {
         const field = fields[fi];
-        const fieldVals = values[fi] as unknown[] | undefined ?? [];
+        const fieldVals = (values[fi] as unknown[] | undefined) ?? [];
         const key =
           field?.labels && Object.keys(field.labels).length > 0
             ? `{${formatLabels(field.labels)}}`
-            : (field?.name ?? "value");
+            : (field?.name ?? 'value');
         tableObj[key] = {
           lastValue: formatValue(fieldVals[fieldVals.length - 1]),
           points: timeVals.length,
@@ -263,7 +269,7 @@ export function printFrameData(frames: DataFrame[]): void {
     const tableObj: Record<string, Record<string, unknown>> = {};
     for (const frame of frames) {
       const vals = frame.data?.values ?? [];
-      const key = frame.schema?.name ?? "(unnamed)";
+      const key = frame.schema?.name ?? '(unnamed)';
       const row: Record<string, unknown> = {};
       for (let fi = 0; fi < colFields.length; fi++) {
         const name = colFields[fi]?.name ?? `col${fi}`;
@@ -314,12 +320,19 @@ export interface QueryResult {
  * the full JSON of the target so something is always shown.
  */
 export function extractQueryExpression(target: QueryTarget): string {
-  for (const key of ["expr", "rawSql", "query", "target", "expression", "sql"]) {
+  for (const key of ['expr', 'rawSql', 'query', 'target', 'expression', 'sql']) {
     const val = target[key];
-    if (typeof val === "string" && val.trim()) return val.trim();
+    if (typeof val === 'string' && val.trim()) return val.trim();
   }
   // Strip internal Grafana fields before JSON-dumping so the output is readable
-  const { refId: _r, datasource: _d, intervalMs: _i, maxDataPoints: _m, hide: _h, ...rest } = target;
+  const {
+    refId: _r,
+    datasource: _d,
+    intervalMs: _i,
+    maxDataPoints: _m,
+    hide: _h,
+    ...rest
+  } = target;
   return JSON.stringify(rest);
 }
 

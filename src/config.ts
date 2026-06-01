@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
-import { existsSync } from "node:fs";
+import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 
 /**
  * Per-project configuration. The shared `gredit` binary reads this from
@@ -22,17 +22,17 @@ export interface Config {
   headless: boolean;
 }
 
-const CONFIG_FILES = ["gredit.dist.json", "gredit.json", "gredit.local.json"];
+const CONFIG_FILES = ['gredit.dist.json', 'gredit.json', 'gredit.local.json'];
 
 const DEFAULTS = {
-  profileDir: ".gredit-profile",
-  dashboardsDir: "dashboards",
+  profileDir: '.gredit-profile',
+  dashboardsDir: 'dashboards',
   shotKiosk: true,
   headless: false,
 };
 
 export function configPath(cwd = process.cwd()): string {
-  return resolve(cwd, "gredit.json");
+  return resolve(cwd, 'gredit.json');
 }
 
 /**
@@ -59,14 +59,13 @@ export async function loadConfig(cwd = process.cwd()): Promise<Config> {
 
   const env = process.env;
   const merged: Config = {
-    baseUrl: env.GRAFANA_BASE_URL ?? fileConfig.baseUrl ?? "",
+    baseUrl: env.GRAFANA_BASE_URL ?? fileConfig.baseUrl ?? '',
     profileDir: env.GRAFANA_PROFILE_DIR ?? fileConfig.profileDir ?? DEFAULTS.profileDir,
-    dashboardsDir:
-      env.GRAFANA_DASHBOARDS_DIR ?? fileConfig.dashboardsDir ?? DEFAULTS.dashboardsDir,
+    dashboardsDir: env.GRAFANA_DASHBOARDS_DIR ?? fileConfig.dashboardsDir ?? DEFAULTS.dashboardsDir,
     uid: env.GRAFANA_UID ?? fileConfig.uid,
     dashboards: fileConfig.dashboards,
     shotKiosk: fileConfig.shotKiosk ?? DEFAULTS.shotKiosk,
-    headless: env.GRAFANA_HEADLESS === "1" ? true : fileConfig.headless ?? DEFAULTS.headless,
+    headless: env.GRAFANA_HEADLESS === '1' ? true : (fileConfig.headless ?? DEFAULTS.headless),
   };
 
   if (!merged.baseUrl) {
@@ -75,7 +74,7 @@ export async function loadConfig(cwd = process.cwd()): Promise<Config> {
     );
   }
   // Normalize: strip trailing slash so URL joins are predictable.
-  merged.baseUrl = merged.baseUrl.replace(/\/+$/, "");
+  merged.baseUrl = merged.baseUrl.replace(/\/+$/, '');
 
   return merged;
 }

@@ -1,11 +1,11 @@
-import { resolve } from "node:path";
-import { mkdir, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { createInterface } from "node:readline";
-import type { Config } from "./config.ts";
-import { resolveUid, loadConfig, configPath } from "./config.ts";
-import { openSession, looksUnauthenticated } from "./session.ts";
-import { lintDashboard, collectPanels, type DashboardModel, type Panel } from "./lint.ts";
+import { resolve } from 'node:path';
+import { mkdir, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { createInterface } from 'node:readline';
+import type { Config } from './config.ts';
+import { resolveUid, loadConfig, configPath } from './config.ts';
+import { openSession, looksUnauthenticated } from './session.ts';
+import { lintDashboard, collectPanels, type DashboardModel, type Panel } from './lint.ts';
 import {
   parsePanelSelector,
   collectTemplateVars,
@@ -16,19 +16,19 @@ import {
   type DataFrame,
   type PanelValidationResult,
   type QueryResult,
-} from "./validate.ts";
+} from './validate.ts';
 
 /** Download the Playwright chromium browser required by all browser commands. */
 export async function setup(): Promise<number> {
-  console.log("Downloading Playwright chromium browser...");
+  console.log('Downloading Playwright chromium browser...');
   // playwright-core bundles the registry and download logic; this is the same
   // function called by the playwright npm postinstall script.
   // @ts-expect-error — not in playwright-core's public exports map
-  const { registry } = (await import("playwright-core/lib/coreBundle")) as {
+  const { registry } = (await import('playwright-core/lib/coreBundle')) as {
     registry: { installBrowsersForNpmInstall(browsers: string[]): Promise<void> };
   };
-  await registry.installBrowsersForNpmInstall(["chromium"]);
-  console.log("Done.");
+  await registry.installBrowsersForNpmInstall(['chromium']);
+  console.log('Done.');
   return 0;
 }
 
@@ -42,39 +42,46 @@ export async function init(): Promise<number> {
 
   try {
     if (existsSync(cfgFile)) {
-      const ans = await ask("gredit.json already exists. Overwrite? [y/N] ");
-      if (!ans.toLowerCase().startsWith("y")) {
-        console.log("Aborted.");
+      const ans = await ask('gredit.json already exists. Overwrite? [y/N] ');
+      if (!ans.toLowerCase().startsWith('y')) {
+        console.log('Aborted.');
         return 0;
       }
     }
 
-    console.log("\nSet up gredit — press Enter to accept defaults.\n");
+    console.log('\nSet up gredit — press Enter to accept defaults.\n');
 
-    let baseUrl = "";
+    let baseUrl = '';
     while (!baseUrl) {
-      baseUrl = await ask("Grafana base URL (e.g. https://grafana.company.com): ");
-      if (!baseUrl) console.error("  baseUrl is required.");
+      baseUrl = await ask('Grafana base URL (e.g. https://grafana.company.com): ');
+      if (!baseUrl) console.error('  baseUrl is required.');
     }
-    baseUrl = baseUrl.replace(/\/+$/, "");
+    baseUrl = baseUrl.replace(/\/+$/, '');
 
-    const profileDir = (await ask("Session profile directory [.gredit-profile]: ")) || ".gredit-profile";
-    const dashboardsDir = (await ask("Dashboards directory [dashboards]: ")) || "dashboards";
-    const uid = await ask("Default dashboard UID (optional, press Enter to skip): ");
+    const profileDir =
+      (await ask('Session profile directory [.gredit-profile]: ')) || '.gredit-profile';
+    const dashboardsDir = (await ask('Dashboards directory [dashboards]: ')) || 'dashboards';
+    const uid = await ask('Default dashboard UID (optional, press Enter to skip): ');
 
-    const shotKioskAns = (await ask("Screenshot in kiosk mode? [Y/n] ")) || "y";
-    const shotKiosk = shotKioskAns.toLowerCase().startsWith("y");
+    const shotKioskAns = (await ask('Screenshot in kiosk mode? [Y/n] ')) || 'y';
+    const shotKiosk = shotKioskAns.toLowerCase().startsWith('y');
 
-    const cfg: Record<string, unknown> = { baseUrl, profileDir, dashboardsDir, shotKiosk, headless: false };
+    const cfg: Record<string, unknown> = {
+      baseUrl,
+      profileDir,
+      dashboardsDir,
+      shotKiosk,
+      headless: false,
+    };
     if (uid) cfg.uid = uid;
 
-    await Bun.write(cfgFile, JSON.stringify(cfg, null, 2) + "\n");
+    await Bun.write(cfgFile, JSON.stringify(cfg, null, 2) + '\n');
     console.log(`\nCreated gredit.json.`);
   } finally {
     rl.close();
   }
 
-  console.log("Starting login...\n");
+  console.log('Starting login...\n');
   return login(await loadConfig());
 }
 
@@ -91,12 +98,14 @@ const REAUTH_HINT = "Session looks unauthenticated — run 'gredit login' to log
 /** One-time, headful Okta login. Holds the browser open until the user is done. */
 export async function login(config: Config): Promise<number> {
   if (config.headless) {
-    console.warn("Note: headless is enabled; Okta login usually needs a visible window.");
+    console.warn('Note: headless is enabled; Okta login usually needs a visible window.');
   }
   const session = await openSession(config);
   console.log(`Opened ${config.baseUrl}.`);
-  console.log("Complete the Okta login in the browser window, then press Enter here to save the session.");
-  await new Promise<void>((res) => process.stdin.once("data", () => res()));
+  console.log(
+    'Complete the Okta login in the browser window, then press Enter here to save the session.',
+  );
+  await new Promise<void>((res) => process.stdin.once('data', () => res()));
   await session.close();
   console.log(`Session saved to ${config.profileDir}.`);
   return 0;
@@ -115,7 +124,10 @@ export async function pull(config: Config, arg?: string): Promise<number> {
   const uid = resolveUid(config, arg);
   const session = await openSession(config);
   try {
-    const res = await session.apiFetch<{ dashboard: DashboardModel; meta?: Record<string, unknown> }>(`/api/dashboards/uid/${uid}`);
+    const res = await session.apiFetch<{
+      dashboard: DashboardModel;
+      meta?: Record<string, unknown>;
+    }>(`/api/dashboards/uid/${uid}`);
     if (looksUnauthenticated(res)) {
       console.error(REAUTH_HINT);
       return 2;
@@ -127,9 +139,12 @@ export async function pull(config: Config, arg?: string): Promise<number> {
     const { dashboard, meta } = res.body;
     await mkdir(resolve(process.cwd(), config.dashboardsDir), { recursive: true });
     const out = dashFile(config, uid);
-    await Bun.write(out, JSON.stringify(dashboard, null, 2) + "\n");
+    await Bun.write(out, JSON.stringify(dashboard, null, 2) + '\n');
     if (meta?.folderUid) {
-      await Bun.write(metaFile(config, uid), JSON.stringify({ folderUid: meta.folderUid }, null, 2) + "\n");
+      await Bun.write(
+        metaFile(config, uid),
+        JSON.stringify({ folderUid: meta.folderUid }, null, 2) + '\n',
+      );
     }
     console.log(`Pulled ${uid} -> ${config.dashboardsDir}/${uid}.json`);
     return 0;
@@ -150,11 +165,11 @@ export async function lint(config: Config, arg?: string): Promise<number> {
     return 1;
   }
   const issues = lintDashboard(model);
-  const errors = issues.filter((i) => i.level === "error");
+  const errors = issues.filter((i) => i.level === 'error');
   for (const i of issues) {
-    console.log(`${i.level === "error" ? "ERROR" : "warn "}  ${i.message}`);
+    console.log(`${i.level === 'error' ? 'ERROR' : 'warn '}  ${i.message}`);
   }
-  if (issues.length === 0) console.log("OK — no issues.");
+  if (issues.length === 0) console.log('OK — no issues.');
   return errors.length > 0 ? 1 : 0;
 }
 
@@ -170,7 +185,7 @@ export async function push(config: Config, arg?: string): Promise<number> {
     return 1;
   }
 
-  const errors = lintDashboard(dashboard).filter((i) => i.level === "error");
+  const errors = lintDashboard(dashboard).filter((i) => i.level === 'error');
   if (errors.length > 0) {
     console.error("Refusing to push: lint found errors. Run 'gredit lint' for details.");
     return 1;
@@ -188,9 +203,9 @@ export async function push(config: Config, arg?: string): Promise<number> {
   try {
     const body: Record<string, unknown> = { dashboard, overwrite: true };
     if (folderUid) body.folderUid = folderUid;
-    const res = await session.apiFetch<unknown>("/api/dashboards/db", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await session.apiFetch<unknown>('/api/dashboards/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (looksUnauthenticated(res)) {
@@ -201,8 +216,8 @@ export async function push(config: Config, arg?: string): Promise<number> {
       console.error(`Push failed (HTTP ${res.status}): ${JSON.stringify(res.body)}`);
       if (res.status === 403) {
         console.error(
-          "A 403 may mean Grafana wants an extra header (CSRF / X-Grafana-Org-Id). " +
-            "Capture the headers your browser sends on a manual save and add them in session.ts.",
+          'A 403 may mean Grafana wants an extra header (CSRF / X-Grafana-Org-Id). ' +
+            'Capture the headers your browser sends on a manual save and add them in session.ts.',
         );
       }
       return 1;
@@ -220,10 +235,10 @@ export async function preview(config: Config, arg?: string): Promise<number> {
   const url = `${config.baseUrl}/d/${uid}`;
   const session = await openSession({ ...config, headless: false });
   try {
-    await session.page.goto(url, { waitUntil: "domcontentloaded" });
+    await session.page.goto(url, { waitUntil: 'domcontentloaded' });
     console.log(`Previewing ${url}`);
-    console.log("Press Enter to close the browser.");
-    await new Promise<void>((res) => process.stdin.once("data", () => res()));
+    console.log('Press Enter to close the browser.');
+    await new Promise<void>((res) => process.stdin.once('data', () => res()));
     return 0;
   } finally {
     await session.close();
@@ -246,7 +261,7 @@ function parsePath(path: string): (string | number)[] {
 function getAtPath(obj: unknown, path: string): unknown {
   let cur = obj;
   for (const key of parsePath(path)) {
-    if (typeof cur !== "object" || cur === null) return undefined;
+    if (typeof cur !== 'object' || cur === null) return undefined;
     cur = (cur as Record<string | number, unknown>)[key as string | number];
   }
   return cur;
@@ -256,11 +271,11 @@ function setAtPath(obj: unknown, path: string, value: unknown): void {
   const parts = parsePath(path);
   let cur: unknown = obj;
   for (let i = 0; i < parts.length - 1; i++) {
-    if (typeof cur !== "object" || cur === null)
+    if (typeof cur !== 'object' || cur === null)
       throw new Error(`Cannot traverse "${path}": non-object at step ${i}`);
     cur = (cur as Record<string | number, unknown>)[parts[i] as string | number];
   }
-  if (typeof cur !== "object" || cur === null)
+  if (typeof cur !== 'object' || cur === null)
     throw new Error(`Cannot set "${path}": parent is not an object`);
   (cur as Record<string | number, unknown>)[parts[parts.length - 1] as string | number] = value;
 }
@@ -280,13 +295,21 @@ function parseValue(raw: string): unknown {
 function findPanels(model: DashboardModel, selector: string): Panel[] {
   const sel = parsePanelSelector(selector);
   const all = collectPanels(model.panels);
-  if (sel.type === "id") return all.filter((p) => p.id === sel.value);
+  if (sel.type === 'id') return all.filter((p) => p.id === sel.value);
   return all.filter((p) => p.title === sel.value);
 }
 
 /** Print a panel's JSON (or a specific field) to stdout. */
-export async function panelGet(config: Config, arg?: string, selector?: string, path?: string): Promise<number> {
-  if (!selector) { console.error("Panel title or #id is required"); return 1; }
+export async function panelGet(
+  config: Config,
+  arg?: string,
+  selector?: string,
+  path?: string,
+): Promise<number> {
+  if (!selector) {
+    console.error('Panel title or #id is required');
+    return 1;
+  }
   const uid = resolveUid(config, arg);
   const file = dashFile(config, uid);
   let model: DashboardModel;
@@ -306,15 +329,21 @@ export async function panelGet(config: Config, arg?: string, selector?: string, 
       console.log(`--- panel #${panel.id} "${panel.title}" ---`);
     }
     const out = path !== undefined ? getAtPath(panel, path) : panel;
-    process.stdout.write((out === undefined ? "undefined" : JSON.stringify(out, null, 2)) + "\n");
+    process.stdout.write((out === undefined ? 'undefined' : JSON.stringify(out, null, 2)) + '\n');
   }
   return 0;
 }
 
 /** Set a panel field in the local dashboard model and write it back to disk. */
-export async function panelSet(config: Config, arg?: string, selector?: string, path?: string, rawValue?: string): Promise<number> {
+export async function panelSet(
+  config: Config,
+  arg?: string,
+  selector?: string,
+  path?: string,
+  rawValue?: string,
+): Promise<number> {
   if (!selector || !path || rawValue === undefined) {
-    console.error("panel selector, path, and value are all required");
+    console.error('panel selector, path, and value are all required');
     return 1;
   }
   const uid = resolveUid(config, arg);
@@ -334,7 +363,7 @@ export async function panelSet(config: Config, arg?: string, selector?: string, 
   if (panels.length > 1) {
     console.error(
       `Ambiguous: ${panels.length} panels share the title "${selector}". Use #<id> to target one:\n` +
-        panels.map((p) => `  #${p.id}  "${p.title}"`).join("\n"),
+        panels.map((p) => `  #${p.id}  "${p.title}"`).join('\n'),
     );
     return 1;
   }
@@ -346,8 +375,10 @@ export async function panelSet(config: Config, arg?: string, selector?: string, 
     console.error((err as Error).message);
     return 1;
   }
-  await Bun.write(file, JSON.stringify(model, null, 2) + "\n");
-  console.log(`Set ${path} = ${JSON.stringify(value)} on "${panel.title ?? selector}" (#${panel.id})`);
+  await Bun.write(file, JSON.stringify(model, null, 2) + '\n');
+  console.log(
+    `Set ${path} = ${JSON.stringify(value)} on "${panel.title ?? selector}" (#${panel.id})`,
+  );
   return 0;
 }
 
@@ -356,10 +387,7 @@ export async function panelSet(config: Config, arg?: string, selector?: string, 
 // ---------------------------------------------------------------------------
 
 interface DsQueryResponse {
-  results?: Record<
-    string,
-    { status?: number; error?: string; frames?: DataFrame[] }
-  >;
+  results?: Record<string, { status?: number; error?: string; frames?: DataFrame[] }>;
   message?: string; // top-level error (e.g. bad datasource uid)
 }
 
@@ -373,24 +401,24 @@ async function validatePanel(
   to?: string,
   raw = false,
 ): Promise<PanelValidationResult> {
-  const base: Pick<PanelValidationResult, "panelId" | "panelTitle"> = {
+  const base: Pick<PanelValidationResult, 'panelId' | 'panelTitle'> = {
     panelId: panel.id,
     panelTitle: panel.title,
   };
 
   const payload = buildQueryPayload(panel, model, vars, from, to);
   if (!payload) {
-    return { ...base, results: [], skippedReason: "no queryable targets" };
+    return { ...base, results: [], skippedReason: 'no queryable targets' };
   }
 
-  const res = await session.apiFetch<DsQueryResponse>("/api/ds/query", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await session.apiFetch<DsQueryResponse>('/api/ds/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
   if (raw) {
-    process.stdout.write(JSON.stringify(res.body, null, 2) + "\n");
+    process.stdout.write(JSON.stringify(res.body, null, 2) + '\n');
     process.exit(0);
   }
 
@@ -398,13 +426,17 @@ async function validatePanel(
   // Note: apiFetch<T> can return a string body for non-JSON responses (e.g. HTML
   // redirect pages), so we widen to unknown before type-narrowing.
   const rawBody: unknown = res.body;
-  if (typeof rawBody === "string") {
+  if (typeof rawBody === 'string') {
     const msg = rawBody.slice(0, 200);
     return {
       ...base,
       results: payload.queries.map((q) => ({
-        refId: q.refId, ok: false, noData: false, frames: 0,
-        error: msg, expression: extractQueryExpression(q),
+        refId: q.refId,
+        ok: false,
+        noData: false,
+        frames: 0,
+        error: msg,
+        expression: extractQueryExpression(q),
       })),
     };
   }
@@ -414,8 +446,12 @@ async function validatePanel(
     return {
       ...base,
       results: payload.queries.map((q) => ({
-        refId: q.refId, ok: false, noData: false, frames: 0,
-        error: topLevelMsg, expression: extractQueryExpression(q),
+        refId: q.refId,
+        ok: false,
+        noData: false,
+        frames: 0,
+        error: topLevelMsg,
+        expression: extractQueryExpression(q),
       })),
     };
   }
@@ -424,8 +460,16 @@ async function validatePanel(
   const results: QueryResult[] = payload.queries.map((q) => {
     const r = body.results?.[q.refId];
     const expression = extractQueryExpression(q);
-    if (!r) return { refId: q.refId, ok: false, noData: false, frames: 0, error: "no result returned", expression };
-    const hasError = typeof r.error === "string" && r.error.length > 0;
+    if (!r)
+      return {
+        refId: q.refId,
+        ok: false,
+        noData: false,
+        frames: 0,
+        error: 'no result returned',
+        expression,
+      };
+    const hasError = typeof r.error === 'string' && r.error.length > 0;
     const statusOk = (r.status ?? 200) < 400;
     const rawFrames = Array.isArray(r.frames) ? r.frames : [];
     const frameCount = rawFrames.length;
@@ -480,7 +524,7 @@ export async function validate(
     if (matched.length > 1) {
       console.error(
         `Ambiguous: ${matched.length} panels share the title "${selectorArg}". Use #<id> to target one:\n` +
-          matched.map((p) => `  #${p.id}  "${p.title}"`).join("\n"),
+          matched.map((p) => `  #${p.id}  "${p.title}"`).join('\n'),
       );
       return 1;
     }
@@ -488,11 +532,13 @@ export async function validate(
   }
 
   const queryablePanels = panels.filter(
-    (p) => Array.isArray((p as Record<string, unknown>).targets) && ((p as Record<string, unknown>).targets as unknown[]).length > 0,
+    (p) =>
+      Array.isArray((p as Record<string, unknown>).targets) &&
+      ((p as Record<string, unknown>).targets as unknown[]).length > 0,
   );
 
   if (queryablePanels.length === 0) {
-    console.log("No panels with queries to validate.");
+    console.log('No panels with queries to validate.');
     return 0;
   }
 
@@ -525,14 +571,16 @@ export async function validate(
         totalQueries++;
         if (!r.ok) {
           totalErrors++;
-          console.error(`  error ${label}  [${r.refId}]: ${r.error ?? "unknown error"}`);
+          console.error(`  error ${label}  [${r.refId}]: ${r.error ?? 'unknown error'}`);
           if (verbose) console.error(`        query: ${r.expression}`);
         } else if (r.noData) {
           totalWarnings++;
           console.warn(`  warn  ${label}  [${r.refId}]: no data returned`);
           if (verbose) console.warn(`        query: ${r.expression}`);
         } else {
-          console.log(`  ok    ${label}  [${r.refId}]: ${r.frames} frame${r.frames === 1 ? "" : "s"}`);
+          console.log(
+            `  ok    ${label}  [${r.refId}]: ${r.frames} frame${r.frames === 1 ? '' : 's'}`,
+          );
           if (verbose) console.log(`        query: ${r.expression}`);
           if (r.frameData) printFrameData(r.frameData);
         }
@@ -540,10 +588,13 @@ export async function validate(
     }
 
     const parts: string[] = [];
-    if (totalErrors > 0) parts.push(`${totalErrors} error${totalErrors === 1 ? "" : "s"}`);
-    if (totalWarnings > 0) parts.push(`${totalWarnings} warning${totalWarnings === 1 ? "" : "s"} (no data)`);
-    if (parts.length === 0) parts.push("all OK");
-    console.log(`\n${queryablePanels.length} panel${queryablePanels.length === 1 ? "" : "s"}, ${totalQueries} quer${totalQueries === 1 ? "y" : "ies"}: ${parts.join(", ")}`);
+    if (totalErrors > 0) parts.push(`${totalErrors} error${totalErrors === 1 ? '' : 's'}`);
+    if (totalWarnings > 0)
+      parts.push(`${totalWarnings} warning${totalWarnings === 1 ? '' : 's'} (no data)`);
+    if (parts.length === 0) parts.push('all OK');
+    console.log(
+      `\n${queryablePanels.length} panel${queryablePanels.length === 1 ? '' : 's'}, ${totalQueries} quer${totalQueries === 1 ? 'y' : 'ies'}: ${parts.join(', ')}`,
+    );
     return totalErrors > 0 ? 1 : 0;
   } finally {
     await session.close();
@@ -555,8 +606,8 @@ export async function shot(config: Config, arg?: string): Promise<number> {
   const uid = resolveUid(config, arg);
   const session = await openSession(config);
   try {
-    const url = `${config.baseUrl}/d/${uid}${config.shotKiosk ? "?kiosk" : ""}`;
-    await session.page.goto(url, { waitUntil: "networkidle" });
+    const url = `${config.baseUrl}/d/${uid}${config.shotKiosk ? '?kiosk' : ''}`;
+    await session.page.goto(url, { waitUntil: 'networkidle' });
     await session.page.waitForTimeout(3000); // let panels finish querying
 
     // Grafana lazy-renders panels that are below the fold. Scroll through the
@@ -575,7 +626,7 @@ export async function shot(config: Config, arg?: string): Promise<number> {
     await session.page.waitForTimeout(1000);
 
     await mkdir(resolve(process.cwd(), config.dashboardsDir), { recursive: true });
-    const out = dashFile(config, uid).replace(/\.json$/, "") + ".png";
+    const out = dashFile(config, uid).replace(/\.json$/, '') + '.png';
     await session.page.screenshot({ path: out, fullPage: true });
     console.log(`Saved screenshot -> ${out}`);
     return 0;
