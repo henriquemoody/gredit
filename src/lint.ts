@@ -14,7 +14,7 @@ export interface DashboardModel {
   [key: string]: unknown;
 }
 
-interface Panel {
+export interface Panel {
   id?: number;
   type?: string;
   title?: string;
@@ -23,7 +23,7 @@ interface Panel {
   [key: string]: unknown;
 }
 
-function collectPanels(panels: Panel[] | undefined, acc: Panel[] = []): Panel[] {
+export function collectPanels(panels: Panel[] | undefined, acc: Panel[] = []): Panel[] {
   if (!panels) return acc;
   for (const p of panels) {
     acc.push(p);

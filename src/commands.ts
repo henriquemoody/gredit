@@ -5,7 +5,7 @@ import { createInterface } from "node:readline";
 import type { Config } from "./config.ts";
 import { resolveUid, loadConfig, configPath } from "./config.ts";
 import { openSession, looksUnauthenticated } from "./session.ts";
-import { lintDashboard, type DashboardModel } from "./lint.ts";
+import { lintDashboard, collectPanels, type DashboardModel, type Panel } from "./lint.ts";
 
 /** Download the Playwright chromium browser required by all browser commands. */
 export async function setup(): Promise<number> {
@@ -217,6 +217,103 @@ export async function preview(config: Config, arg?: string): Promise<number> {
   } finally {
     await session.close();
   }
+}
+
+// --- Panel path helpers ---
+
+function parsePath(path: string): (string | number)[] {
+  const parts: (string | number)[] = [];
+  const re = /\[(\d+)\]|\.?([^.[]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(path)) !== null) {
+    if (m[1] !== undefined) parts.push(Number(m[1]));
+    else if (m[2] !== undefined) parts.push(m[2]);
+  }
+  return parts;
+}
+
+function getAtPath(obj: unknown, path: string): unknown {
+  let cur = obj;
+  for (const key of parsePath(path)) {
+    if (typeof cur !== "object" || cur === null) return undefined;
+    cur = (cur as Record<string | number, unknown>)[key];
+  }
+  return cur;
+}
+
+function setAtPath(obj: unknown, path: string, value: unknown): void {
+  const parts = parsePath(path);
+  let cur: unknown = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (typeof cur !== "object" || cur === null)
+      throw new Error(`Cannot traverse "${path}": non-object at step ${i}`);
+    cur = (cur as Record<string | number, unknown>)[parts[i]];
+  }
+  if (typeof cur !== "object" || cur === null)
+    throw new Error(`Cannot set "${path}": parent is not an object`);
+  (cur as Record<string | number, unknown>)[parts[parts.length - 1]] = value;
+}
+
+function parseValue(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function findPanel(model: DashboardModel, title: string, uid: string): Panel | undefined {
+  const panel = collectPanels(model.panels).find((p) => p.title === title);
+  if (!panel) console.error(`No panel titled "${title}" in ${uid}`);
+  return panel;
+}
+
+/** Print a panel's JSON (or a specific field) to stdout. */
+export async function panelGet(config: Config, arg?: string, title?: string, path?: string): Promise<number> {
+  if (!title) { console.error("Panel title is required"); return 1; }
+  const uid = resolveUid(config, arg);
+  const file = dashFile(config, uid);
+  let model: DashboardModel;
+  try {
+    model = (await Bun.file(file).json()) as DashboardModel;
+  } catch (err) {
+    console.error(`Could not read ${file}: ${(err as Error).message}`);
+    return 1;
+  }
+  const panel = findPanel(model, title, uid);
+  if (!panel) return 1;
+  const out = path !== undefined ? getAtPath(panel, path) : panel;
+  process.stdout.write((out === undefined ? "undefined" : JSON.stringify(out, null, 2)) + "\n");
+  return 0;
+}
+
+/** Set a panel field in the local dashboard model and write it back to disk. */
+export async function panelSet(config: Config, arg?: string, title?: string, path?: string, rawValue?: string): Promise<number> {
+  if (!title || !path || rawValue === undefined) {
+    console.error("title, path, and value are all required");
+    return 1;
+  }
+  const uid = resolveUid(config, arg);
+  const file = dashFile(config, uid);
+  let model: DashboardModel;
+  try {
+    model = (await Bun.file(file).json()) as DashboardModel;
+  } catch (err) {
+    console.error(`Could not read ${file}: ${(err as Error).message}`);
+    return 1;
+  }
+  const panel = findPanel(model, title, uid);
+  if (!panel) return 1;
+  const value = parseValue(rawValue);
+  try {
+    setAtPath(panel, path, value);
+  } catch (err) {
+    console.error((err as Error).message);
+    return 1;
+  }
+  await Bun.write(file, JSON.stringify(model, null, 2) + "\n");
+  console.log(`Set ${path} = ${JSON.stringify(value)} on "${title}"`);
+  return 0;
 }
 
 /** Screenshot the rendered dashboard to dashboardsDir/<uid>.png. */

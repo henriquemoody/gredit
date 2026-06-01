@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from "citty";
 import { loadConfig, ConfigError } from "./config.ts";
-import { login, logout, pull, push, lint, shot, preview, setup, init } from "./commands.ts";
+import { login, logout, pull, push, lint, shot, preview, setup, init, panelGet, panelSet } from "./commands.ts";
 
 const uid = {
   type: "positional" as const,
@@ -85,6 +85,34 @@ const main = defineCommand({
       args: { uid },
       async run({ args }) {
         process.exit(await withConfig((config) => preview(config, args.uid)));
+      },
+    }),
+    panel: defineCommand({
+      meta: { name: "panel", description: "Read or write a specific panel in the local dashboard model" },
+      subCommands: {
+        get: defineCommand({
+          meta: { name: "get", description: "Print panel JSON (or a specific field) to stdout" },
+          args: {
+            uid: { type: "positional" as const, description: "Dashboard UID or alias", required: false },
+            title: { type: "positional" as const, description: "Panel title", required: true },
+            path: { type: "positional" as const, description: "Field path, e.g. gridPos.h or targets[0].expression", required: false },
+          },
+          async run({ args }) {
+            process.exit(await withConfig((config) => panelGet(config, args.uid, args.title, args.path)));
+          },
+        }),
+        set: defineCommand({
+          meta: { name: "set", description: "Set a panel field and write the local model back to disk" },
+          args: {
+            uid: { type: "positional" as const, description: "Dashboard UID or alias", required: false },
+            title: { type: "positional" as const, description: "Panel title", required: true },
+            path: { type: "positional" as const, description: "Field path, e.g. gridPos.h or targets[0].expression", required: true },
+            value: { type: "positional" as const, description: "JSON-encoded or plain-string value", required: true },
+          },
+          async run({ args }) {
+            process.exit(await withConfig((config) => panelSet(config, args.uid, args.title, args.path, args.value)));
+          },
+        }),
       },
     }),
   },
