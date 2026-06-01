@@ -1,93 +1,93 @@
 #!/usr/bin/env bun
+import { defineCommand, runMain } from "citty";
 import { loadConfig, ConfigError } from "./config.ts";
 import { login, logout, pull, push, lint, shot, preview, setup, init } from "./commands.ts";
 
-const HELP = `gredit — agentic Grafana dashboard development (no API key needed)
+const uid = {
+  type: "positional" as const,
+  description: "Dashboard UID or alias",
+  required: false,
+};
 
-Usage:
-  gredit <command> [uid|alias]
-
-Commands:
-  init                 Create gredit.json interactively, then log in.
-  setup                Download the Playwright chromium browser (run once after install).
-  login                Headful Okta login; saves the session to the profile dir.
-  logout               Remove the stored session.
-  pull  [uid|alias]    Download the dashboard model to <dashboardsDir>/<uid>.json.
-  lint  [uid|alias]    Validate the local model (no network). Nonzero exit on errors.
-  push  [uid|alias]    Lint, then upload the local model with overwrite=true.
-  shot    [uid|alias]  Screenshot the rendered dashboard to <dashboardsDir>/<uid>.png.
-  preview [uid|alias]  Open the dashboard in a browser for interactive preview.
-  help                 Show this message.
-
-Config (gredit.json in the current directory; also loads gredit.dist.json and gredit.local.json if present):
-  {
-    "baseUrl": "https://grafana.company.com",   // required
-    "profileDir": ".gredit-profile",                 // session cookies live here
-    "dashboardsDir": "dashboards",
-    "uid": "abc123",                             // default uid (optional)
-    "dashboards": { "main": "abc123" },          // alias -> uid (optional)
-    "shotKiosk": true,
-    "headless": false
-  }
-
-Env overrides: GRAFANA_BASE_URL, GRAFANA_PROFILE_DIR, GRAFANA_DASHBOARDS_DIR,
-GRAFANA_UID, GRAFANA_HEADLESS=1
-
-Typical loop:
-  gredit login         # once, until the Okta session expires
-  gredit pull main     # then edit dashboards/<uid>.json
-  gredit lint main
-  gredit push main
-  gredit shot main     # screenshot the rendered result
-  gredit preview main  # open in browser for interactive review
-`;
-
-async function main(): Promise<number> {
-  const [cmd, arg] = process.argv.slice(2);
-
-  if (!cmd || cmd === "help" || cmd === "-h" || cmd === "--help") {
-    console.log(HELP);
-    return cmd ? 0 : 1;
-  }
-
-  const known = ["init", "setup", "login", "logout", "pull", "push", "lint", "shot", "preview"] as const;
-  if (!known.includes(cmd as (typeof known)[number])) {
-    console.error(`Unknown command: ${cmd}\n`);
-    console.log(HELP);
-    return 1;
-  }
-
-  if (cmd === "init") return init();
-  if (cmd === "setup") return setup();
-
-  const config = await loadConfig();
-  switch (cmd) {
-    case "login":
-      return login(config);
-    case "logout":
-      return logout(config);
-    case "pull":
-      return pull(config, arg);
-    case "lint":
-      return lint(config, arg);
-    case "push":
-      return push(config, arg);
-    case "shot":
-      return shot(config, arg);
-    case "preview":
-      return preview(config, arg);
-    default:
-      return 1;
+async function withConfig<T>(fn: (config: Awaited<ReturnType<typeof loadConfig>>) => Promise<T>): Promise<T> {
+  try {
+    const config = await loadConfig();
+    return await fn(config);
+  } catch (err) {
+    if (err instanceof ConfigError) {
+      console.error(`Config error: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
   }
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    if (err instanceof ConfigError) {
-      console.error(`Config error: ${err.message}`);
-    } else {
-      console.error(err instanceof Error ? err.stack ?? err.message : String(err));
-    }
-    process.exit(1);
-  });
+const main = defineCommand({
+  meta: {
+    name: "gredit",
+    description: "Agentic Grafana dashboard development (no API key needed)",
+  },
+  subCommands: {
+    init: defineCommand({
+      meta: { name: "init", description: "Create gredit.json interactively, then log in" },
+      async run() {
+        process.exit(await init());
+      },
+    }),
+    setup: defineCommand({
+      meta: { name: "setup", description: "Download the Playwright chromium browser (run once after install)" },
+      async run() {
+        process.exit(await setup());
+      },
+    }),
+    login: defineCommand({
+      meta: { name: "login", description: "Headful Okta login; saves the session to the profile dir" },
+      async run() {
+        process.exit(await withConfig((config) => login(config)));
+      },
+    }),
+    logout: defineCommand({
+      meta: { name: "logout", description: "Remove the stored session" },
+      async run() {
+        process.exit(await withConfig((config) => logout(config)));
+      },
+    }),
+    pull: defineCommand({
+      meta: { name: "pull", description: "Download the dashboard model to <dashboardsDir>/<uid>.json" },
+      args: { uid },
+      async run({ args }) {
+        process.exit(await withConfig((config) => pull(config, args.uid)));
+      },
+    }),
+    lint: defineCommand({
+      meta: { name: "lint", description: "Validate the local model (no network). Nonzero exit on errors" },
+      args: { uid },
+      async run({ args }) {
+        process.exit(await withConfig((config) => lint(config, args.uid)));
+      },
+    }),
+    push: defineCommand({
+      meta: { name: "push", description: "Lint, then upload the local model with overwrite=true" },
+      args: { uid },
+      async run({ args }) {
+        process.exit(await withConfig((config) => push(config, args.uid)));
+      },
+    }),
+    shot: defineCommand({
+      meta: { name: "shot", description: "Screenshot the rendered dashboard to <dashboardsDir>/<uid>.png" },
+      args: { uid },
+      async run({ args }) {
+        process.exit(await withConfig((config) => shot(config, args.uid)));
+      },
+    }),
+    preview: defineCommand({
+      meta: { name: "preview", description: "Open the dashboard in a browser for interactive preview" },
+      args: { uid },
+      async run({ args }) {
+        process.exit(await withConfig((config) => preview(config, args.uid)));
+      },
+    }),
+  },
+});
+
+runMain(main);
