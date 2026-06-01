@@ -27,13 +27,14 @@ checks) are attached automatically.
 Requires [Bun](https://bun.sh).
 
 ```sh
-bun install
-bunx playwright install chromium   # one-time: fetch the browser binary
+bun add -g @henriquemoody/gredit
+gredit setup   # one-time: download the Playwright Chromium browser
 ```
 
-### Build a standalone binary
+### Build a standalone binary from source
 
 ```sh
+bun install
 bun run build          # -> dist/gredit
 ```
 
