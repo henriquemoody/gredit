@@ -66,16 +66,17 @@ Add `.gredit-profile/` to that repo's `.gitignore` — it holds your session.
 ## Commands
 
 ```
-gredit setup                                    download the Playwright Chromium browser (once per machine)
-gredit login                                    one-time headful Okta login
-gredit logout                                   remove the stored session
-gredit pull [uid|alias]                         download model -> dashboards/<uid>.json
-gredit lint [uid|alias]                         validate locally (no network)
-gredit push [uid|alias]                         lint, then upload with overwrite=true
-gredit shot [uid|alias]                         screenshot rendered dashboard -> <uid>.png
-gredit preview [uid|alias]                      open dashboard in browser for interactive review
-gredit panel get [uid|alias] <title> [path]     print panel JSON (or a field) to stdout
-gredit panel set [uid|alias] <title> <path> <value>  set a panel field and write the model back to disk
+gredit setup                                         download the Playwright Chromium browser (once per machine)
+gredit login                                         one-time headful Okta login
+gredit logout                                        remove the stored session
+gredit pull [uid|alias]                              download model -> dashboards/<uid>.json
+gredit lint [uid|alias]                              validate locally (no network)
+gredit push [uid|alias]                              lint, then upload with overwrite=true
+gredit shot [uid|alias]                              screenshot rendered dashboard -> <uid>.png
+gredit preview [uid|alias]                           open dashboard in browser for interactive review
+gredit validate [uid|alias] [panel] [--var k=v,...]  run queries against Grafana; report pass/fail
+gredit panel get [uid|alias] <panel> [path]          print panel JSON (or a field) to stdout
+gredit panel set [uid|alias] <panel> <path> <value>  set a panel field and write the model back to disk
 gredit help
 ```
 
@@ -85,16 +86,46 @@ gredit help
 A `uid` argument can be a raw uid, an alias from `dashboards`, or omitted to use
 the default `uid`.
 
+### Panel selectors
+
+`<panel>` is either a panel title (e.g. `"CPU Usage"`) or `#<id>` (e.g. `#42`).
+
+- `panel get` prints all matching panels when a title is shared across multiple panels.
+- `panel set` and `validate` refuse to act when a title matches more than one panel.
+  Use `#<id>` to disambiguate (find the id with `panel get <title>`).
+
+### validate
+
+```sh
+gredit validate                          # all panels of the default dashboard
+gredit validate my-uid                   # all panels of a specific dashboard
+gredit validate my-uid "CPU Usage"       # one panel by title
+gredit validate my-uid #42              # one panel by id
+gredit validate my-uid --var cluster=prod,env=staging  # override template variables
+```
+
+Template variables are substituted from their `current.value` in `templating.list`
+before the queries are sent. Grafana built-in globals (`$__interval`,
+`$__rate_interval`, `$__range`, etc.) are given sensible defaults. Use `--var` to
+override any variable, including globals.
+
+Hidden targets (`"hide": true`) are skipped. Panels with no targets (text, row,
+etc.) are also skipped.
+
+Exit code 0 = all queries returned without errors; 1 = at least one query error;
+2 = session expired (re-run `gredit login`).
+
 ## The loop
 
 ```sh
-gredit setup         # once per machine
-gredit login         # once, until Okta expires
-gredit pull main     # commit the baseline
+gredit setup           # once per machine
+gredit login           # once, until Okta expires
+gredit pull main       # commit the baseline
 # ...edit dashboards/<uid>.json...
-gredit lint main     # fix until clean
+gredit lint main       # fix until clean
+gredit validate main   # check queries actually run (network)
 gredit push main
-gredit shot main     # review the rendered result, iterate
+gredit shot main       # review the rendered result, iterate
 ```
 
 Commit each accepted version. `git diff` is your safety net: drift in `uid` or

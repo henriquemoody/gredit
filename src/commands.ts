@@ -6,6 +6,17 @@ import type { Config } from "./config.ts";
 import { resolveUid, loadConfig, configPath } from "./config.ts";
 import { openSession, looksUnauthenticated } from "./session.ts";
 import { lintDashboard, collectPanels, type DashboardModel, type Panel } from "./lint.ts";
+import {
+  parsePanelSelector,
+  collectTemplateVars,
+  parseVarOverrides,
+  buildQueryPayload,
+  extractQueryExpression,
+  printFrameData,
+  type DataFrame,
+  type PanelValidationResult,
+  type QueryResult,
+} from "./validate.ts";
 
 /** Download the Playwright chromium browser required by all browser commands. */
 export async function setup(): Promise<number> {
@@ -236,7 +247,7 @@ function getAtPath(obj: unknown, path: string): unknown {
   let cur = obj;
   for (const key of parsePath(path)) {
     if (typeof cur !== "object" || cur === null) return undefined;
-    cur = (cur as Record<string | number, unknown>)[key];
+    cur = (cur as Record<string | number, unknown>)[key as string | number];
   }
   return cur;
 }
@@ -247,11 +258,11 @@ function setAtPath(obj: unknown, path: string, value: unknown): void {
   for (let i = 0; i < parts.length - 1; i++) {
     if (typeof cur !== "object" || cur === null)
       throw new Error(`Cannot traverse "${path}": non-object at step ${i}`);
-    cur = (cur as Record<string | number, unknown>)[parts[i]];
+    cur = (cur as Record<string | number, unknown>)[parts[i] as string | number];
   }
   if (typeof cur !== "object" || cur === null)
     throw new Error(`Cannot set "${path}": parent is not an object`);
-  (cur as Record<string | number, unknown>)[parts[parts.length - 1]] = value;
+  (cur as Record<string | number, unknown>)[parts[parts.length - 1] as string | number] = value;
 }
 
 function parseValue(raw: string): unknown {
@@ -262,15 +273,20 @@ function parseValue(raw: string): unknown {
   }
 }
 
-function findPanel(model: DashboardModel, title: string, uid: string): Panel | undefined {
-  const panel = collectPanels(model.panels).find((p) => p.title === title);
-  if (!panel) console.error(`No panel titled "${title}" in ${uid}`);
-  return panel;
+/**
+ * Find panels by a selector string (panel title or `#<id>`).
+ * Returns all matches so callers can decide how to handle ambiguity.
+ */
+function findPanels(model: DashboardModel, selector: string): Panel[] {
+  const sel = parsePanelSelector(selector);
+  const all = collectPanels(model.panels);
+  if (sel.type === "id") return all.filter((p) => p.id === sel.value);
+  return all.filter((p) => p.title === sel.value);
 }
 
 /** Print a panel's JSON (or a specific field) to stdout. */
-export async function panelGet(config: Config, arg?: string, title?: string, path?: string): Promise<number> {
-  if (!title) { console.error("Panel title is required"); return 1; }
+export async function panelGet(config: Config, arg?: string, selector?: string, path?: string): Promise<number> {
+  if (!selector) { console.error("Panel title or #id is required"); return 1; }
   const uid = resolveUid(config, arg);
   const file = dashFile(config, uid);
   let model: DashboardModel;
@@ -280,17 +296,25 @@ export async function panelGet(config: Config, arg?: string, title?: string, pat
     console.error(`Could not read ${file}: ${(err as Error).message}`);
     return 1;
   }
-  const panel = findPanel(model, title, uid);
-  if (!panel) return 1;
-  const out = path !== undefined ? getAtPath(panel, path) : panel;
-  process.stdout.write((out === undefined ? "undefined" : JSON.stringify(out, null, 2)) + "\n");
+  const panels = findPanels(model, selector);
+  if (panels.length === 0) {
+    console.error(`No panel matching "${selector}" in ${uid}`);
+    return 1;
+  }
+  for (const panel of panels) {
+    if (panels.length > 1) {
+      console.log(`--- panel #${panel.id} "${panel.title}" ---`);
+    }
+    const out = path !== undefined ? getAtPath(panel, path) : panel;
+    process.stdout.write((out === undefined ? "undefined" : JSON.stringify(out, null, 2)) + "\n");
+  }
   return 0;
 }
 
 /** Set a panel field in the local dashboard model and write it back to disk. */
-export async function panelSet(config: Config, arg?: string, title?: string, path?: string, rawValue?: string): Promise<number> {
-  if (!title || !path || rawValue === undefined) {
-    console.error("title, path, and value are all required");
+export async function panelSet(config: Config, arg?: string, selector?: string, path?: string, rawValue?: string): Promise<number> {
+  if (!selector || !path || rawValue === undefined) {
+    console.error("panel selector, path, and value are all required");
     return 1;
   }
   const uid = resolveUid(config, arg);
@@ -302,8 +326,19 @@ export async function panelSet(config: Config, arg?: string, title?: string, pat
     console.error(`Could not read ${file}: ${(err as Error).message}`);
     return 1;
   }
-  const panel = findPanel(model, title, uid);
-  if (!panel) return 1;
+  const panels = findPanels(model, selector);
+  if (panels.length === 0) {
+    console.error(`No panel matching "${selector}" in ${uid}`);
+    return 1;
+  }
+  if (panels.length > 1) {
+    console.error(
+      `Ambiguous: ${panels.length} panels share the title "${selector}". Use #<id> to target one:\n` +
+        panels.map((p) => `  #${p.id}  "${p.title}"`).join("\n"),
+    );
+    return 1;
+  }
+  const panel = panels[0]!;
   const value = parseValue(rawValue);
   try {
     setAtPath(panel, path, value);
@@ -312,8 +347,207 @@ export async function panelSet(config: Config, arg?: string, title?: string, pat
     return 1;
   }
   await Bun.write(file, JSON.stringify(model, null, 2) + "\n");
-  console.log(`Set ${path} = ${JSON.stringify(value)} on "${title}"`);
+  console.log(`Set ${path} = ${JSON.stringify(value)} on "${panel.title ?? selector}" (#${panel.id})`);
   return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Validate
+// ---------------------------------------------------------------------------
+
+interface DsQueryResponse {
+  results?: Record<
+    string,
+    { status?: number; error?: string; frames?: DataFrame[] }
+  >;
+  message?: string; // top-level error (e.g. bad datasource uid)
+}
+
+async function validatePanel(
+  session: Awaited<ReturnType<typeof openSession>>,
+  panel: Panel,
+  model: DashboardModel,
+  vars: Map<string, string>,
+  showData = false,
+  from?: string,
+  to?: string,
+  raw = false,
+): Promise<PanelValidationResult> {
+  const base: Pick<PanelValidationResult, "panelId" | "panelTitle"> = {
+    panelId: panel.id,
+    panelTitle: panel.title,
+  };
+
+  const payload = buildQueryPayload(panel, model, vars, from, to);
+  if (!payload) {
+    return { ...base, results: [], skippedReason: "no queryable targets" };
+  }
+
+  const res = await session.apiFetch<DsQueryResponse>("/api/ds/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (raw) {
+    process.stdout.write(JSON.stringify(res.body, null, 2) + "\n");
+    process.exit(0);
+  }
+
+  // Top-level failure (e.g. datasource not found, malformed request).
+  // Note: apiFetch<T> can return a string body for non-JSON responses (e.g. HTML
+  // redirect pages), so we widen to unknown before type-narrowing.
+  const rawBody: unknown = res.body;
+  if (typeof rawBody === "string") {
+    const msg = rawBody.slice(0, 200);
+    return {
+      ...base,
+      results: payload.queries.map((q) => ({
+        refId: q.refId, ok: false, noData: false, frames: 0,
+        error: msg, expression: extractQueryExpression(q),
+      })),
+    };
+  }
+  // Non-OK JSON with no results structure (e.g. datasource not found).
+  const topLevelMsg = (rawBody as DsQueryResponse).message;
+  if (!res.ok && topLevelMsg && !(rawBody as DsQueryResponse).results) {
+    return {
+      ...base,
+      results: payload.queries.map((q) => ({
+        refId: q.refId, ok: false, noData: false, frames: 0,
+        error: topLevelMsg, expression: extractQueryExpression(q),
+      })),
+    };
+  }
+
+  const body = rawBody as DsQueryResponse;
+  const results: QueryResult[] = payload.queries.map((q) => {
+    const r = body.results?.[q.refId];
+    const expression = extractQueryExpression(q);
+    if (!r) return { refId: q.refId, ok: false, noData: false, frames: 0, error: "no result returned", expression };
+    const hasError = typeof r.error === "string" && r.error.length > 0;
+    const statusOk = (r.status ?? 200) < 400;
+    const rawFrames = Array.isArray(r.frames) ? r.frames : [];
+    const frameCount = rawFrames.length;
+    const ok = !hasError && statusOk;
+    return {
+      refId: q.refId,
+      ok,
+      noData: ok && frameCount === 0,
+      frames: frameCount,
+      frameData: showData && ok && frameCount > 0 ? rawFrames : undefined,
+      error: hasError ? r.error : statusOk ? undefined : `HTTP ${r.status}`,
+      expression,
+    };
+  });
+
+  return { ...base, results };
+}
+
+/** Run panel queries against the live Grafana instance and report pass/fail. */
+export async function validate(
+  config: Config,
+  arg?: string,
+  selectorArg?: string,
+  varsArg?: string,
+  verbose = false,
+  showData = false,
+  from?: string,
+  to?: string,
+  raw = false,
+): Promise<number> {
+  const uid = resolveUid(config, arg);
+  const file = dashFile(config, uid);
+  let model: DashboardModel;
+  try {
+    model = (await Bun.file(file).json()) as DashboardModel;
+  } catch (err) {
+    console.error(`Could not read ${file}: ${(err as Error).message}`);
+    return 1;
+  }
+
+  const vars = collectTemplateVars(model);
+  for (const [k, v] of parseVarOverrides(varsArg)) vars.set(k, v);
+
+  let panels = collectPanels(model.panels);
+
+  if (selectorArg) {
+    const matched = findPanels(model, selectorArg);
+    if (matched.length === 0) {
+      console.error(`No panel matching "${selectorArg}" in ${uid}`);
+      return 1;
+    }
+    if (matched.length > 1) {
+      console.error(
+        `Ambiguous: ${matched.length} panels share the title "${selectorArg}". Use #<id> to target one:\n` +
+          matched.map((p) => `  #${p.id}  "${p.title}"`).join("\n"),
+      );
+      return 1;
+    }
+    panels = matched;
+  }
+
+  const queryablePanels = panels.filter(
+    (p) => Array.isArray((p as Record<string, unknown>).targets) && ((p as Record<string, unknown>).targets as unknown[]).length > 0,
+  );
+
+  if (queryablePanels.length === 0) {
+    console.log("No panels with queries to validate.");
+    return 0;
+  }
+
+  const session = await openSession(config);
+  try {
+    let totalQueries = 0;
+    let totalErrors = 0;
+    let totalWarnings = 0;
+
+    for (const panel of queryablePanels) {
+      const label = panel.title ? `"${panel.title}" (#${panel.id})` : `#${panel.id}`;
+      const pvr = await validatePanel(session, panel, model, vars, showData, from, to, raw);
+
+      // Check for session expiry on the first response that looks like a redirect.
+      if (
+        pvr.results.length > 0 &&
+        pvr.results[0]?.error &&
+        looksUnauthenticated({ status: 0, ok: false, body: pvr.results[0].error })
+      ) {
+        console.error(REAUTH_HINT);
+        return 2;
+      }
+
+      if (pvr.skippedReason) {
+        console.log(`  skip  ${label}: ${pvr.skippedReason}`);
+        continue;
+      }
+
+      for (const r of pvr.results) {
+        totalQueries++;
+        if (!r.ok) {
+          totalErrors++;
+          console.error(`  error ${label}  [${r.refId}]: ${r.error ?? "unknown error"}`);
+          if (verbose) console.error(`        query: ${r.expression}`);
+        } else if (r.noData) {
+          totalWarnings++;
+          console.warn(`  warn  ${label}  [${r.refId}]: no data returned`);
+          if (verbose) console.warn(`        query: ${r.expression}`);
+        } else {
+          console.log(`  ok    ${label}  [${r.refId}]: ${r.frames} frame${r.frames === 1 ? "" : "s"}`);
+          if (verbose) console.log(`        query: ${r.expression}`);
+          if (r.frameData) printFrameData(r.frameData);
+        }
+      }
+    }
+
+    const parts: string[] = [];
+    if (totalErrors > 0) parts.push(`${totalErrors} error${totalErrors === 1 ? "" : "s"}`);
+    if (totalWarnings > 0) parts.push(`${totalWarnings} warning${totalWarnings === 1 ? "" : "s"} (no data)`);
+    if (parts.length === 0) parts.push("all OK");
+    console.log(`\n${queryablePanels.length} panel${queryablePanels.length === 1 ? "" : "s"}, ${totalQueries} quer${totalQueries === 1 ? "y" : "ies"}: ${parts.join(", ")}`);
+    return totalErrors > 0 ? 1 : 0;
+  } finally {
+    await session.close();
+  }
 }
 
 /** Screenshot the rendered dashboard to dashboardsDir/<uid>.png. */
