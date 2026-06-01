@@ -6,12 +6,36 @@
   "author": "Henrique Moody <henriquemoody@gmail.com>",
   "type": "module",
   "bin": {
-    "gredit": "./src/index.ts"
+    "gredit": "src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "grafana",
+    "dashboard",
+    "okta",
+    "cli",
+    "bun",
+    "agentic",
+    "playwright"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/henriquemoody/gredit.git"
+  },
+  "homepage": "https://github.com/henriquemoody/gredit#readme",
+  "bugs": {
+    "url": "https://github.com/henriquemoody/gredit/issues"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   },
   "scripts": {
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --compile --outfile dist/gredit --external chromium-bidi",
     "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
