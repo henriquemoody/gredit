@@ -37,7 +37,7 @@ export async function openSession(config: Config): Promise<Session> {
     headless: config.headless,
   }).catch((err: Error) => {
     if (/executable.*doesn.t exist|Executable doesn/i.test(err.message)) {
-      throw new Error("Playwright browser not found. Run 'grafana-dash setup' to download it.");
+      throw new Error("Playwright browser not found. Run 'gredit setup' to download it.");
     }
     throw err;
   });

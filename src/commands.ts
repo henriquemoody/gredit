@@ -21,7 +21,7 @@ export async function setup(): Promise<number> {
   return 0;
 }
 
-/** Interactive wizard that creates grafana-dash.json, then runs login. */
+/** Interactive wizard that creates gredit.json, then runs login. */
 export async function init(): Promise<number> {
   const cfgFile = configPath();
 
@@ -31,14 +31,14 @@ export async function init(): Promise<number> {
 
   try {
     if (existsSync(cfgFile)) {
-      const ans = await ask("grafana-dash.json already exists. Overwrite? [y/N] ");
+      const ans = await ask("gredit.json already exists. Overwrite? [y/N] ");
       if (!ans.toLowerCase().startsWith("y")) {
         console.log("Aborted.");
         return 0;
       }
     }
 
-    console.log("\nSet up grafana-dash — press Enter to accept defaults.\n");
+    console.log("\nSet up gredit — press Enter to accept defaults.\n");
 
     let baseUrl = "";
     while (!baseUrl) {
@@ -47,7 +47,7 @@ export async function init(): Promise<number> {
     }
     baseUrl = baseUrl.replace(/\/+$/, "");
 
-    const profileDir = (await ask("Session profile directory [.gf-profile]: ")) || ".gf-profile";
+    const profileDir = (await ask("Session profile directory [.gredit-profile]: ")) || ".gredit-profile";
     const dashboardsDir = (await ask("Dashboards directory [dashboards]: ")) || "dashboards";
     const uid = await ask("Default dashboard UID (optional, press Enter to skip): ");
 
@@ -58,7 +58,7 @@ export async function init(): Promise<number> {
     if (uid) cfg.uid = uid;
 
     await Bun.write(cfgFile, JSON.stringify(cfg, null, 2) + "\n");
-    console.log(`\nCreated grafana-dash.json.`);
+    console.log(`\nCreated gredit.json.`);
   } finally {
     rl.close();
   }
@@ -75,7 +75,7 @@ function metaFile(config: Config, uid: string): string {
   return resolve(process.cwd(), config.dashboardsDir, `${uid}.meta.json`);
 }
 
-const REAUTH_HINT = "Session looks unauthenticated — run 'grafana-dash login' to log in via Okta.";
+const REAUTH_HINT = "Session looks unauthenticated — run 'gredit login' to log in via Okta.";
 
 /** One-time, headful Okta login. Holds the browser open until the user is done. */
 export async function login(config: Config): Promise<number> {
@@ -161,7 +161,7 @@ export async function push(config: Config, arg?: string): Promise<number> {
 
   const errors = lintDashboard(dashboard).filter((i) => i.level === "error");
   if (errors.length > 0) {
-    console.error("Refusing to push: lint found errors. Run 'grafana-dash lint' for details.");
+    console.error("Refusing to push: lint found errors. Run 'gredit lint' for details.");
     return 1;
   }
 

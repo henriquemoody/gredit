@@ -1,4 +1,4 @@
-# grafana-dash
+# gredit
 
 A small Bun CLI for **agentic Grafana dashboard development** when you have no
 admin access and no API keys — only the ability to log in through Okta and
@@ -10,7 +10,7 @@ session cookie to call Grafana's own REST API (`GET /api/dashboards/uid/<uid>`,
 is required. The dashboard JSON is treated as source of truth in your repo.
 
 The binary is shared; **configuration is per project**. Each dashboard repo
-carries its own `grafana-dash.json`, so one installed `grafana-dash`
+carries its own `gredit.json`, so one installed `gredit`
 serves many instances/dashboards.
 
 ## How it works
@@ -34,19 +34,19 @@ bunx playwright install chromium   # one-time: fetch the browser binary
 ### Build a standalone binary
 
 ```sh
-bun run build          # -> dist/grafana-dash
+bun run build          # -> dist/gredit
 ```
 
-Put `dist/grafana-dash` on your `PATH`, then run `grafana-dash setup` once on
+Put `dist/gredit` on your `PATH`, then run `gredit setup` once on
 each machine to download the Playwright Chromium browser. Browser binaries
 can't be embedded in the binary itself, but `setup` handles the download.
 
 ## Configure (per project)
 
-Drop a `grafana-dash.json` in the dashboard repo (copy `grafana-dash.example.json`).
+Drop a `gredit.json` in the dashboard repo (copy `gredit.example.json`).
 Settings are merged in order, each layer overriding the previous:
-`grafana-dash.dist.json` → `grafana-dash.json` → `grafana-dash.local.json`.
-Only files that exist are loaded; `grafana-dash.local.json` is gitignored by default.
+`gredit.dist.json` → `gredit.json` → `gredit.local.json`.
+Only files that exist are loaded; `gredit.local.json` is gitignored by default.
 
 ```json
 {
@@ -56,25 +56,25 @@ Only files that exist are loaded; `grafana-dash.local.json` is gitignored by def
 }
 ```
 
-`profileDir` (default `.gf-profile`) and `dashboardsDir` (default `dashboards`)
+`profileDir` (default `.gredit-profile`) and `dashboardsDir` (default `dashboards`)
 are optional. Env vars override file values: `GRAFANA_BASE_URL`,
 `GRAFANA_PROFILE_DIR`, `GRAFANA_DASHBOARDS_DIR`, `GRAFANA_UID`,
 `GRAFANA_HEADLESS=1`.
 
-Add `.gf-profile/` to that repo's `.gitignore` — it holds your session.
+Add `.gredit-profile/` to that repo's `.gitignore` — it holds your session.
 
 ## Commands
 
 ```
-grafana-dash setup               download the Playwright Chromium browser (once per machine)
-grafana-dash login               one-time headful Okta login
-grafana-dash logout              remove the stored session
-grafana-dash pull [uid|alias]    download model -> dashboards/<uid>.json
-grafana-dash lint [uid|alias]    validate locally (no network)
-grafana-dash push [uid|alias]    lint, then upload with overwrite=true
-grafana-dash shot [uid|alias]    screenshot rendered dashboard -> <uid>.png
-grafana-dash preview [uid|alias] open dashboard in browser for interactive review
-grafana-dash help
+gredit setup               download the Playwright Chromium browser (once per machine)
+gredit login               one-time headful Okta login
+gredit logout              remove the stored session
+gredit pull [uid|alias]    download model -> dashboards/<uid>.json
+gredit lint [uid|alias]    validate locally (no network)
+gredit push [uid|alias]    lint, then upload with overwrite=true
+gredit shot [uid|alias]    screenshot rendered dashboard -> <uid>.png
+gredit preview [uid|alias] open dashboard in browser for interactive review
+gredit help
 ```
 
 A `uid` argument can be a raw uid, an alias from `dashboards`, or omitted to use
@@ -83,13 +83,13 @@ the default `uid`.
 ## The loop
 
 ```sh
-grafana-dash setup         # once per machine
-grafana-dash login         # once, until Okta expires
-grafana-dash pull main     # commit the baseline
+gredit setup         # once per machine
+gredit login         # once, until Okta expires
+gredit pull main     # commit the baseline
 # ...edit dashboards/<uid>.json...
-grafana-dash lint main     # fix until clean
-grafana-dash push main
-grafana-dash shot main     # review the rendered result, iterate
+gredit lint main     # fix until clean
+gredit push main
+gredit shot main     # review the rendered result, iterate
 ```
 
 Commit each accepted version. `git diff` is your safety net: drift in `uid` or

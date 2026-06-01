@@ -1,16 +1,16 @@
 {
-  "name": "grafana-dash",
+  "name": "gredit",
   "version": "0.1.0",
   "description": "Agentic Grafana dashboard development: pull/edit/push dashboard JSON via a persistent, Okta-authenticated browser session. No API key required.",
   "license": "ISC",
   "author": "Henrique Moody <henriquemoody@gmail.com>",
   "type": "module",
   "bin": {
-    "grafana-dash": "./src/index.ts"
+    "gredit": "./src/index.ts"
   },
   "scripts": {
     "start": "bun run src/index.ts",
-    "build": "bun build src/index.ts --compile --outfile dist/grafana-dash --external chromium-bidi",
+    "build": "bun build src/index.ts --compile --outfile dist/gredit --external chromium-bidi",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

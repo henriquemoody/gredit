@@ -2,13 +2,13 @@
 import { loadConfig, ConfigError } from "./config.ts";
 import { login, logout, pull, push, lint, shot, preview, setup, init } from "./commands.ts";
 
-const HELP = `grafana-dash — agentic Grafana dashboard development (no API key needed)
+const HELP = `gredit — agentic Grafana dashboard development (no API key needed)
 
 Usage:
-  grafana-dash <command> [uid|alias]
+  gredit <command> [uid|alias]
 
 Commands:
-  init                 Create grafana-dash.json interactively, then log in.
+  init                 Create gredit.json interactively, then log in.
   setup                Download the Playwright chromium browser (run once after install).
   login                Headful Okta login; saves the session to the profile dir.
   logout               Remove the stored session.
@@ -19,10 +19,10 @@ Commands:
   preview [uid|alias]  Open the dashboard in a browser for interactive preview.
   help                 Show this message.
 
-Config (grafana-dash.json in the current directory; also loads grafana-dash.dist.json and grafana-dash.local.json if present):
+Config (gredit.json in the current directory; also loads gredit.dist.json and gredit.local.json if present):
   {
     "baseUrl": "https://grafana.company.com",   // required
-    "profileDir": ".gf-profile",                 // session cookies live here
+    "profileDir": ".gredit-profile",                 // session cookies live here
     "dashboardsDir": "dashboards",
     "uid": "abc123",                             // default uid (optional)
     "dashboards": { "main": "abc123" },          // alias -> uid (optional)
@@ -34,12 +34,12 @@ Env overrides: GRAFANA_BASE_URL, GRAFANA_PROFILE_DIR, GRAFANA_DASHBOARDS_DIR,
 GRAFANA_UID, GRAFANA_HEADLESS=1
 
 Typical loop:
-  grafana-dash login         # once, until the Okta session expires
-  grafana-dash pull main     # then edit dashboards/<uid>.json
-  grafana-dash lint main
-  grafana-dash push main
-  grafana-dash shot main     # screenshot the rendered result
-  grafana-dash preview main  # open in browser for interactive review
+  gredit login         # once, until the Okta session expires
+  gredit pull main     # then edit dashboards/<uid>.json
+  gredit lint main
+  gredit push main
+  gredit shot main     # screenshot the rendered result
+  gredit preview main  # open in browser for interactive review
 `;
 
 async function main(): Promise<number> {

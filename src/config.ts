@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 
 /**
- * Per-project configuration. The shared `grafana-dash` binary reads this from
+ * Per-project configuration. The shared `gredit` binary reads this from
  * the current working directory, so each dashboard repo carries its own config.
  */
 export interface Config {
@@ -22,22 +22,22 @@ export interface Config {
   headless: boolean;
 }
 
-const CONFIG_FILES = ["grafana-dash.dist.json", "grafana-dash.json", "grafana-dash.local.json"];
+const CONFIG_FILES = ["gredit.dist.json", "gredit.json", "gredit.local.json"];
 
 const DEFAULTS = {
-  profileDir: ".gf-profile",
+  profileDir: ".gredit-profile",
   dashboardsDir: "dashboards",
   shotKiosk: true,
   headless: false,
 };
 
 export function configPath(cwd = process.cwd()): string {
-  return resolve(cwd, "grafana-dash.json");
+  return resolve(cwd, "gredit.json");
 }
 
 /**
  * Load and validate config from the current directory. Files are merged in
- * order: grafana-dash.dist.json < grafana-dash.json < grafana-dash.local.json.
+ * order: gredit.dist.json < gredit.json < gredit.local.json.
  * Environment variables override all file values:
  *   GRAFANA_BASE_URL, GRAFANA_PROFILE_DIR, GRAFANA_DASHBOARDS_DIR,
  *   GRAFANA_UID, GRAFANA_HEADLESS (=1)
@@ -71,7 +71,7 @@ export async function loadConfig(cwd = process.cwd()): Promise<Config> {
 
   if (!merged.baseUrl) {
     throw new ConfigError(
-      `No baseUrl set. Create grafana-dash.json (see 'grafana-dash help') or set GRAFANA_BASE_URL.`,
+      `No baseUrl set. Create gredit.json (see 'gredit help') or set GRAFANA_BASE_URL.`,
     );
   }
   // Normalize: strip trailing slash so URL joins are predictable.
@@ -91,7 +91,7 @@ export function resolveUid(config: Config, arg?: string): string {
   }
   if (config.uid) return config.uid;
   throw new ConfigError(
-    "No dashboard uid given and no default 'uid' in config. Pass one: grafana-dash pull <uid>",
+    "No dashboard uid given and no default 'uid' in config. Pass one: gredit pull <uid>",
   );
 }
 
