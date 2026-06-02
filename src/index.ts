@@ -13,6 +13,9 @@ import {
   panelGet,
   panelSet,
   validate,
+  panels,
+  vars,
+  info,
 } from './commands/index.ts';
 import { uidPositional, withConfig } from './runtime.ts';
 
@@ -106,6 +109,63 @@ const main = defineCommand({
       args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => preview(config, args.uid)));
+      },
+    }),
+    panels: defineCommand({
+      meta: {
+        name: 'panels',
+        description: 'List all panels in a dashboard with id, title, type, and gridPos',
+      },
+      args: {
+        uid: uidPositional,
+        json: {
+          type: 'boolean' as const,
+          description: 'Output as JSON instead of TSV',
+          required: false,
+        },
+      },
+      async run({ args }) {
+        process.exit(
+          await withConfig((config) => panels(config, { uid: args.uid, json: args.json })),
+        );
+      },
+    }),
+    vars: defineCommand({
+      meta: {
+        name: 'vars',
+        description: 'Inspect template variables (name, type, current value, options)',
+      },
+      args: {
+        uid: uidPositional,
+        json: {
+          type: 'boolean' as const,
+          description: 'Output as JSON instead of TSV',
+          required: false,
+        },
+      },
+      async run({ args }) {
+        process.exit(
+          await withConfig((config) => vars(config, { uid: args.uid, json: args.json })),
+        );
+      },
+    }),
+    info: defineCommand({
+      meta: {
+        name: 'info',
+        description: 'Show dashboard metadata (uid, title, version, panel count, max panel id)',
+      },
+      args: {
+        uid: uidPositional,
+        json: {
+          type: 'boolean' as const,
+          description: 'Output as JSON instead of key-value pairs',
+          required: false,
+        },
+      },
+      async run({ args }) {
+        process.exit(
+          await withConfig((config) => info(config, { uid: args.uid, json: args.json })),
+        );
       },
     }),
     validate: defineCommand({
