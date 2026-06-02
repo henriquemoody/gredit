@@ -57,16 +57,19 @@ export function collectTemplateVars(model: DashboardModel): Map<string, string> 
 }
 
 /**
- * Parse comma-separated name=value pairs from the `--var` flag, e.g.
- * `"cluster=prod,env=staging"`.
+ * Parse `k=v` pairs from the `--var` flags. Supports both:
+ *  - Repeating `--var k=v --var k2=v2` (array form, recommended)
+ *  - Legacy comma-separated `--var "k=v,k2=v2"` (values cannot contain commas)
  */
-export function parseVarOverrides(raw: string | undefined): Map<string, string> {
+export function parseVarOverrides(raw: string[] | undefined): Map<string, string> {
   const map = new Map<string, string>();
   if (!raw) return map;
-  for (const pair of raw.split(',')) {
-    const eq = pair.indexOf('=');
-    if (eq < 0) continue;
-    map.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+  for (const entry of raw) {
+    for (const pair of entry.split(',')) {
+      const eq = pair.indexOf('=');
+      if (eq < 0) continue;
+      map.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
   }
   return map;
 }
@@ -108,9 +111,9 @@ export function substituteVarsInObject(obj: unknown, vars: Map<string, string>):
 
 export interface QueryTarget {
   refId: string;
-  datasource?: unknown;
-  intervalMs?: number;
-  maxDataPoints?: number;
+  datasource?: unknown | undefined;
+  intervalMs?: number | undefined;
+  maxDataPoints?: number | undefined;
   [key: string]: unknown;
 }
 
@@ -170,7 +173,6 @@ export function buildQueryPayload(
 // Panel selector
 // ---------------------------------------------------------------------------
 
-/** A panel selector is either a title string or `#<numeric-id>`. */
 export interface PanelSelector {
   type: 'title' | 'id';
   raw: string;
@@ -190,14 +192,14 @@ export function parsePanelSelector(selector: string): PanelSelector {
 // ---------------------------------------------------------------------------
 
 export interface DataFrameField {
-  name?: string;
-  type?: string;
-  labels?: Record<string, string>;
+  name?: string | undefined;
+  type?: string | undefined;
+  labels?: Record<string, string> | undefined;
 }
 
 export interface DataFrame {
-  schema?: { fields?: DataFrameField[]; name?: string };
-  data?: { values?: unknown[][] };
+  schema?: { fields?: DataFrameField[] | undefined; name?: string | undefined } | undefined;
+  data?: { values?: unknown[][] | undefined } | undefined;
 }
 
 function formatValue(val: unknown): unknown {
@@ -305,11 +307,11 @@ export function printFrameData(frames: DataFrame[]): void {
 export interface QueryResult {
   refId: string;
   ok: boolean;
-  noData: boolean; // true when ok but 0 frames returned — valid but suspicious
+  noData: boolean;
   frames: number;
   /** Raw frames, populated when --data is passed; print with printFrameData(). */
-  frameData?: DataFrame[];
-  error?: string;
+  frameData?: DataFrame[] | undefined;
+  error?: string | undefined;
   /** The substituted query expression, for --verbose output. */
   expression: string;
 }
@@ -340,6 +342,5 @@ export interface PanelValidationResult {
   panelId: number | undefined;
   panelTitle: string | undefined;
   results: QueryResult[];
-  /** Set when the panel was skipped (no queries, all hidden, etc.). */
-  skippedReason?: string;
+  skippedReason?: string | undefined;
 }

@@ -38,7 +38,9 @@ export async function openSession(config: Config): Promise<Session> {
       headless: config.headless,
     })
     .catch((err: Error) => {
-      if (/executable.*doesn.t exist|Executable doesn/i.test(err.message)) {
+      if (
+        /executable doesn.?t exist|chromium.*not found|browser.*not.*installed/i.test(err.message)
+      ) {
         throw new Error("Playwright browser not found. Run 'gredit setup' to download it.");
       }
       throw err;
@@ -50,6 +52,8 @@ export async function openSession(config: Config): Promise<Session> {
 
   const apiFetch = async <T>(path: string, init?: RequestInit): Promise<ApiResult<T>> => {
     const url = path.startsWith('http') ? path : `${config.baseUrl}${path}`;
+    // Note: init is serialized across the page boundary via page.evaluate, so
+    // it must contain only JSON-compatible values (no Headers, AbortSignal, Blob, etc.).
     return page.evaluate(
       async ({ url, init }) => {
         const r = await fetch(url, { credentials: 'include', ...(init as RequestInit) });

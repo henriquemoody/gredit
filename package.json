@@ -35,7 +35,9 @@
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --compile --outfile dist/gredit --external chromium-bidi",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck",
+    "test": "bun test",
+    "prepublishOnly": "bun run typecheck && bun run test",
+    "check": "bun run typecheck && bun run test && bun run format:check",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

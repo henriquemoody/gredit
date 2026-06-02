@@ -3,7 +3,7 @@ name: Publish
 on:
   push:
     tags:
-      - "[0-9]*"
+      - '[0-9]*'
 
 jobs:
   publish:
@@ -19,10 +19,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Publish
         run: npm publish --access=public

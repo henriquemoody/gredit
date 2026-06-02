@@ -8,6 +8,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": true,
     "allowImportingTsExtensions": true,
     "noEmit": true
   },

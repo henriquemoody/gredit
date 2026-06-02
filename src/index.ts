@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from 'citty';
-import { loadConfig, ConfigError } from './config.ts';
 import {
   login,
   logout,
@@ -14,28 +13,8 @@ import {
   panelGet,
   panelSet,
   validate,
-} from './commands.ts';
-
-const uid = {
-  type: 'positional' as const,
-  description: 'Dashboard UID or alias',
-  required: false,
-};
-
-async function withConfig<T>(
-  fn: (config: Awaited<ReturnType<typeof loadConfig>>) => Promise<T>,
-): Promise<T> {
-  try {
-    const config = await loadConfig();
-    return await fn(config);
-  } catch (err) {
-    if (err instanceof ConfigError) {
-      console.error(`Config error: ${err.message}`);
-      process.exit(1);
-    }
-    throw err;
-  }
-}
+} from './commands/index.ts';
+import { uidPositional, withConfig } from './runtime.ts';
 
 const main = defineCommand({
   meta: {
@@ -78,7 +57,7 @@ const main = defineCommand({
         name: 'pull',
         description: 'Download the dashboard model to <dashboardsDir>/<uid>.json',
       },
-      args: { uid },
+      args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => pull(config, args.uid)));
       },
@@ -88,14 +67,14 @@ const main = defineCommand({
         name: 'lint',
         description: 'Validate the local model (no network). Nonzero exit on errors',
       },
-      args: { uid },
+      args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => lint(config, args.uid)));
       },
     }),
     push: defineCommand({
       meta: { name: 'push', description: 'Lint, then upload the local model with overwrite=true' },
-      args: { uid },
+      args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => push(config, args.uid)));
       },
@@ -105,7 +84,7 @@ const main = defineCommand({
         name: 'shot',
         description: 'Screenshot the rendered dashboard to <dashboardsDir>/<uid>.png',
       },
-      args: { uid },
+      args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => shot(config, args.uid)));
       },
@@ -115,7 +94,7 @@ const main = defineCommand({
         name: 'preview',
         description: 'Open the dashboard in a browser for interactive preview',
       },
-      args: { uid },
+      args: { uid: uidPositional },
       async run({ args }) {
         process.exit(await withConfig((config) => preview(config, args.uid)));
       },
@@ -126,11 +105,7 @@ const main = defineCommand({
         description: 'Run panel queries against the live Grafana datasource and report pass/fail',
       },
       args: {
-        uid: {
-          type: 'positional' as const,
-          description: 'Dashboard UID or alias',
-          required: false,
-        },
+        uid: uidPositional,
         panel: {
           type: 'positional' as const,
           description: 'Panel title or #<id> (omit to validate all panels)',
@@ -138,7 +113,8 @@ const main = defineCommand({
         },
         var: {
           type: 'string' as const,
-          description: 'Override template vars: --var cluster=prod,env=staging',
+          description:
+            'Override template vars: --var cluster=prod --var env=staging (values with commas must use separate --var flags)',
           required: false,
         },
         verbose: {
@@ -170,19 +146,19 @@ const main = defineCommand({
         },
       },
       async run({ args }) {
+        const varArgs = args.var ? (Array.isArray(args.var) ? args.var : [args.var]) : undefined;
         process.exit(
           await withConfig((config) =>
-            validate(
-              config,
-              args.uid,
-              args.panel,
-              args.var,
-              args.verbose,
-              args.data,
-              args.from,
-              args.to,
-              args.raw,
-            ),
+            validate(config, {
+              uid: args.uid,
+              selector: args.panel,
+              vars: varArgs as string[] | undefined,
+              verbose: args.verbose,
+              data: args.data,
+              from: args.from,
+              to: args.to,
+              raw: args.raw,
+            }),
           ),
         );
       },
@@ -200,11 +176,7 @@ const main = defineCommand({
               'Print panel JSON (or a specific field) to stdout; prints all matches if title is shared',
           },
           args: {
-            uid: {
-              type: 'positional' as const,
-              description: 'Dashboard UID or alias',
-              required: false,
-            },
+            uid: uidPositional,
             selector: {
               type: 'positional' as const,
               description: 'Panel title or #<id>',
@@ -218,7 +190,9 @@ const main = defineCommand({
           },
           async run({ args }) {
             process.exit(
-              await withConfig((config) => panelGet(config, args.uid, args.selector, args.path)),
+              await withConfig((config) =>
+                panelGet(config, { uid: args.uid, selector: args.selector, path: args.path }),
+              ),
             );
           },
         }),
@@ -229,11 +203,7 @@ const main = defineCommand({
               'Set a panel field and write the local model back to disk; use #<id> if title is ambiguous',
           },
           args: {
-            uid: {
-              type: 'positional' as const,
-              description: 'Dashboard UID or alias',
-              required: false,
-            },
+            uid: uidPositional,
             selector: {
               type: 'positional' as const,
               description: 'Panel title or #<id>',
@@ -253,7 +223,12 @@ const main = defineCommand({
           async run({ args }) {
             process.exit(
               await withConfig((config) =>
-                panelSet(config, args.uid, args.selector, args.path, args.value),
+                panelSet(config, {
+                  uid: args.uid,
+                  selector: args.selector,
+                  path: args.path,
+                  value: args.value,
+                }),
               ),
             );
           },

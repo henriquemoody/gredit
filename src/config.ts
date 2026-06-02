@@ -13,9 +13,9 @@ export interface Config {
   /** Directory where dashboard JSON models are read from / written to. */
   dashboardsDir: string;
   /** Default dashboard uid used when a command is invoked without one. */
-  uid?: string;
+  uid?: string | undefined;
   /** Optional alias -> uid map so commands can take a friendly name. */
-  dashboards?: Record<string, string>;
+  dashboards?: Record<string, string> | undefined;
   /** Run screenshots in Grafana kiosk mode (hides chrome). Default true. */
   shotKiosk: boolean;
   /** Whether browser commands run headless. Default false (Okta is headful). */
@@ -94,4 +94,6 @@ export function resolveUid(config: Config, arg?: string): string {
   );
 }
 
-export class ConfigError extends Error {}
+export class ConfigError extends Error {
+  override name = 'ConfigError';
+}

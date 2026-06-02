@@ -6,20 +6,20 @@ export interface LintIssue {
 }
 
 export interface DashboardModel {
-  uid?: string;
-  title?: string;
-  schemaVersion?: number;
-  panels?: Panel[];
-  templating?: { list?: unknown[] };
+  uid?: string | undefined;
+  title?: string | undefined;
+  schemaVersion?: number | undefined;
+  panels?: Panel[] | undefined;
+  templating?: { list?: unknown[] | undefined } | undefined;
   [key: string]: unknown;
 }
 
 export interface Panel {
-  id?: number;
-  type?: string;
-  title?: string;
-  gridPos?: { x: number; y: number; w: number; h: number };
-  panels?: Panel[]; // rows can nest panels
+  id?: number | undefined;
+  type?: string | undefined;
+  title?: string | undefined;
+  gridPos?: { x: number; y: number; w: number; h: number } | undefined;
+  panels?: Panel[] | undefined;
   [key: string]: unknown;
 }
 
@@ -78,7 +78,11 @@ export function lintDashboard(model: DashboardModel): LintIssue[] {
     }
     if (
       !p.gridPos ||
-      ['x', 'y', 'w', 'h'].some((k) => typeof (p.gridPos as any)?.[k] !== 'number')
+      (['x', 'y', 'w', 'h'] as const).some(
+        (k) =>
+          typeof (p.gridPos as Partial<Record<'x' | 'y' | 'w' | 'h', unknown>> | undefined)?.[k] !==
+          'number',
+      )
     ) {
       issues.push({ level: 'error', message: `${where}: invalid or missing 'gridPos'` });
     }
