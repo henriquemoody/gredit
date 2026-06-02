@@ -4,3 +4,6 @@ dist/
 # Per-project artifacts (when the binary is run inside a dashboard repo):
 .gf-profile/
 *.local.json
+
+# Override global .gitignore that hides .github/*
+!.github/
