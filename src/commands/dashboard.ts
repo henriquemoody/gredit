@@ -38,9 +38,14 @@ export async function pull(config: Config, arg?: string): Promise<number> {
   }
 }
 
+export interface PushOptions {
+  uid?: string | undefined;
+  message?: string | undefined;
+}
+
 /** Upload the local model with overwrite=true (lints first; refuses on errors). */
-export async function push(config: Config, arg?: string): Promise<number> {
-  const uid = resolveUid(config, arg);
+export async function push(config: Config, opts: PushOptions = {}): Promise<number> {
+  const uid = resolveUid(config, opts.uid);
   const file = dashFile(config, uid);
   const dashboard = await readModel(file);
   if (!dashboard) return 1;
@@ -63,6 +68,7 @@ export async function push(config: Config, arg?: string): Promise<number> {
   try {
     const body: Record<string, unknown> = { dashboard, overwrite: true };
     if (folderUid) body.folderUid = folderUid;
+    if (opts.message) body.message = opts.message;
     const res = await session.apiFetch<unknown>('/api/dashboards/db', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -2,6 +2,7 @@ export { setup } from './setup.ts';
 export { init } from './init.ts';
 export { login, logout } from './auth.ts';
 export { pull, push } from './dashboard.ts';
+export type { PushOptions } from './dashboard.ts';
 export { lint } from './lint.ts';
 export { preview } from './preview.ts';
 export { shot } from './shot.ts';

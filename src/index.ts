@@ -74,9 +74,18 @@ const main = defineCommand({
     }),
     push: defineCommand({
       meta: { name: 'push', description: 'Lint, then upload the local model with overwrite=true' },
-      args: { uid: uidPositional },
+      args: {
+        uid: uidPositional,
+        message: {
+          type: 'string' as const,
+          description: 'Change note to attach to the dashboard version in Grafana',
+          required: false,
+        },
+      },
       async run({ args }) {
-        process.exit(await withConfig((config) => push(config, args.uid)));
+        process.exit(
+          await withConfig((config) => push(config, { uid: args.uid, message: args.message })),
+        );
       },
     }),
     shot: defineCommand({
