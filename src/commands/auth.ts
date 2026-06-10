@@ -5,10 +5,7 @@ import { openSession } from '../session.ts';
 
 /** One-time, headful Okta login. Holds the browser open until the user is done. */
 export async function login(config: Config): Promise<number> {
-  if (config.headless) {
-    console.warn('Note: headless is enabled; Okta login usually needs a visible window.');
-  }
-  const session = await openSession(config);
+  const session = await openSession({ ...config, headless: false });
   console.log(`Opened ${config.baseUrl}.`);
   console.log(
     'Complete the Okta login in the browser window, then press Enter here to save the session.',
